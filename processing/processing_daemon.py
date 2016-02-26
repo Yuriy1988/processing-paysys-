@@ -37,7 +37,6 @@ class ProcessingAbstractHandler():
         pass
 
 
-
 class AuthSourceHandler(ProcessingAbstractHandler):
 
 
@@ -49,7 +48,6 @@ class AuthSourceHandler(ProcessingAbstractHandler):
 
         cursor = self.db.db_update_status(q_data['transaction_id'], 'auth_so')
         return q_data
-
 
 
 class AuthDestinationHandler(ProcessingAbstractHandler):
@@ -73,6 +71,7 @@ class CaptureSourceHandler(ProcessingAbstractHandler):
             print('3 %s %s' % (q_data['transaction_id'], result))
         cursor = self.db.db_update_status(q_data['transaction_id'], 'capc_so')
         return q_data
+
 
 class CaptureDestinationHandler(ProcessingAbstractHandler):
 
