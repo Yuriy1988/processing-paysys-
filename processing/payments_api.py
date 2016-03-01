@@ -1,4 +1,4 @@
-from random import random, randint
+from random import random, randint, choice
 from tornado import gen
 
 
@@ -9,7 +9,7 @@ class TestPaymentSystem():
         time = randint(1, 10)
         yield gen.sleep(time)
 
-        return time
+        return {'status': choice(['ok', 'wait', 'decline']), 'time': time}
 
     @gen.coroutine
     def capture(self, data):

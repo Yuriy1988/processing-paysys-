@@ -1,4 +1,5 @@
 from decimal import Decimal
+import logging
 from random import random, randint
 import traceback
 from tornado import gen
@@ -27,10 +28,11 @@ def paypal_serializer(data=None):
 def bitcoin_serializer(data=None):
     if not data:
         raise ValueError
+
     return data
 
 transaction_source_serializers = {
-    'visa_master': visa_master_serializer,
+    'credit_card': visa_master_serializer,
     'paypal': paypal_serializer,
     'bitcoin': bitcoin_serializer
 }
@@ -83,19 +85,20 @@ class MainHandler(BaseHandler):
     @gen.coroutine
     def post(self):
         try:
+            print(self.request.body.decode("utf-8"))
             transaction_data = request_serialazer(self.request.body.decode("utf-8"))
             # transaction_data['source'] = encrypt(settings.PASSWORD, transaction_data['source'])
             # transaction_data['destination'] = encrypt(settings.PASSWORD, transaction_data['destination'])
             transaction_data['status'] = 'initiate'
+            transaction_data['description'] = 'initiate'
             queue_data = transaction_data.copy()
-            transaction_data.pop("type", None)
-            transaction_data["id"] = randint(10000, 1000000)
-            transaction_id = yield self.db.db_execute("""INSERT INTO transactions (id, status, source, currency, destination)
-                                          VALUES (%(id)s, %(status)s, %(source)s, %(currency)s, %(destination)s) RETURNING ID;""",
+            transaction_id = yield self.db.db_execute("""INSERT INTO transactions (status, amount, source, currency, destination, description)
+                                          VALUES (%(status)s, %(amount)s, %(source)s, %(currency)s, %(destination)s, %(description)s) RETURNING ID;""",
                                                  transaction_data)
             queue_data['transaction_id'] = transaction_id
             self.q.put_nowait(json.dumps(queue_data))
             self.write({'transaction_id': transaction_id})
+            print({'transaction_id': transaction_id})
             self.finish()
         except ValueError:
             print(traceback.format_exc())
@@ -103,10 +106,10 @@ class MainHandler(BaseHandler):
 
 def request_serialazer(request):
     data = json.loads(request)
-    transaction_type = data.get('type')
+    transaction_type = data.get('payment_type')
     transaction_source_serializer = transaction_source_serializers.get(transaction_type)
     transaction_currency = data.get('currency')
-    transaction_amount = data.get('amount')
+    transaction_amount = data.get('amount_cent')
     if not transaction_source_serializer or not transaction_currency or not transaction_amount \
             or transaction_currency not in CURRENCY_LIST:
         raise ValueError
