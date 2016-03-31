@@ -9,3 +9,4 @@ pyasn1==0.1.9
 pycparser==2.14
 pycrypto==2.6.1
 requests==2.9.1
+pika

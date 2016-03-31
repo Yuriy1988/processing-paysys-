@@ -12,8 +12,8 @@ postgresql_install:
 	sudo -u postgres psql -c "CREATE USER xopayadmin WITH PASSWORD 'xopay';"
 	sudo -u postgres psql -c "CREATE DATABASE xopayprocessing OWNER xopayadmin;"
 	sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE xopayprocessing TO xopayadmin"
-	sudo -u postgres psql xopayprocessing -c "CREATE TABLE transactions (ID SERIAL PRIMARY KEY, amount double precision NOT NULL, comission double precision, destination varchar(10000) NOT NULL, source varchar(10000) NOT NULL, description varchar(1000), status varchar(100) NOT NULL, currency varchar(3) NOT NULL);"
+	sudo -u postgres psql xopayprocessing -c "CREATE TABLE transactions (ID SERIAL PRIMARY KEY, amount double precision NOT NULL, comission double precision, destination varchar(10000) NOT NULL, source varchar(10000) NOT NULL, description varchar(1000), status varchar(100) NOT NULL, currency varchar(3) NOT NULL, uuid varchar(50) NOT NULL, source_auth_response varchar(255), source_capture_response varchar(255), source_hold_id varchar(10), source_order_id varchar(10),  source_merchant_data varchar(255));"
 	sudo -u postgres psql xopayprocessing -c "GRANT ALL PRIVILEGES ON TABLE transactions TO xopayadmin"
-	sudo -u postgres psql xopayprocessing -c "GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public to xopayadmin;"GRANT
+	sudo -u postgres psql xopayprocessing -c "GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public to xopayadmin3;"
 
 
