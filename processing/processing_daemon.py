@@ -1,21 +1,20 @@
-import datetime
 import json
 import logging
-from random import randint
 import traceback
 from tornado import gen, httpclient
-from tornado.queues import Queue, QueueEmpty
+
 import config
-from db_connector import DBConnection
 from processing import crypt
 from processing.payments_api import TestPaymentSystem
+from processing.serializers import request_serialazer
+from db_connector import DBConnection
 from rabbitmq_connector import ConsumingClient, PublishingClient
 
-from processing.serializers import request_serialazer
 
 log = logging.getLogger(__name__)
 
-class ProcessingAbstractHandler():
+
+class ProcessingAbstractHandler:
 
     def __init__(self, db, q_init=None, q_void=None, q_after=None):
         self.db = DBConnection(db)
@@ -24,8 +23,6 @@ class ProcessingAbstractHandler():
         self.q_void = q_void
         self.http_client = httpclient.HTTPClient()
         self.rabbitmq_publisher = PublishingClient(config.RABBITMQ_URL ,config.TRANSACTION_STATUS_QUEUE)
-
-
 
     @gen.coroutine
     def main_processing(self):
@@ -43,7 +40,7 @@ class ProcessingAbstractHandler():
         pass
 
     def get_payment_method(self, data):
-        #TODO: make normal system
+        # TODO: make normal system
         dict_of_paym_systems = {
             0: TestPaymentSystem()
         }
@@ -52,16 +49,15 @@ class ProcessingAbstractHandler():
             paym_system = dict_of_paym_systems.get(paym_system_id)
             if not paym_system:
                 pass
-            return  paym_system
+            return paym_system
         pass
 
 
 class NewTransactionHandler(ProcessingAbstractHandler):
 
-
     @gen.coroutine
     def main_processing(self):
-        self.rabbitmq_consumer = ConsumingClient(config.RABBITMQ_URL ,config.NEW_TRANSACTIONS_QUEUE)
+        self.rabbitmq_consumer = ConsumingClient(config.RABBITMQ_URL, config.NEW_TRANSACTIONS_QUEUE)
         try:
             yield self.rabbitmq_consumer.connect()
             while True:
@@ -90,9 +86,7 @@ class NewTransactionHandler(ProcessingAbstractHandler):
         print({'transaction_id': transaction_id})
 
 
-
 class AuthSourceHandler(ProcessingAbstractHandler):
-
 
     @gen.coroutine
     def handle_data(self, q_data):
@@ -119,7 +113,7 @@ class AuthSourceHandler(ProcessingAbstractHandler):
         elif result and result['status'] == 'wait':
             yield self.q_init.put(json.dumps(q_data))
             if result.get('order_id'):
-                q_data['waiting_order'] = result['order_id'] # if we have order_id of transaction but dont have final response
+                q_data['waiting_order'] = result['order_id']  # if we have order_id of transaction but dont have final response
                 yield self.db.db_add_auth_response(q_data['transaction_id'], result['response'], result['order_id'])
             log.info('AuthSource wait %s' % (q_data['transaction_id']))
             return q_data
@@ -145,13 +139,11 @@ class AuthSourceHandler(ProcessingAbstractHandler):
             return q_data
 
 
-
-
 class AuthDestinationHandler(ProcessingAbstractHandler):
 
     @gen.coroutine
     def handle_data(self, q_data):
-        #TODO: make auth destination method
+        # TODO: make auth destination method
         result = {'status': 'ok'}
         if result and result['status'] == 'ok':
             log.info('AuthDestination %s' % (q_data['transaction_id']))
@@ -200,7 +192,7 @@ class CaptureSourceHandler(ProcessingAbstractHandler):
         elif result and result['status'] == 'wait':
             yield self.q_init.put(json.dumps(q_data))
             if result.get('order_id'):
-                q_data['waiting_order'] = result['order_id'] # if we have order_id of transaction but dont have final response
+                q_data['waiting_order'] = result['order_id']  # if we have order_id of transaction but dont have final response
                 yield self.db.db_add_capture_response(q_data['transaction_id'], result['response'], result['order_id'])
             log.info('captureSource wait %s' % (q_data['transaction_id']))
             return q_data
@@ -226,12 +218,11 @@ class CaptureSourceHandler(ProcessingAbstractHandler):
             return q_data
 
 
-
 class CaptureDestinationHandler(ProcessingAbstractHandler):
 
     @gen.coroutine
     def handle_data(self, q_data):
-        #TODO: make capture destination method
+        # TODO: make capture destination method
         result = {'status': 'ok'}
         if result and result['status'] == 'ok':
             log.info('CaptureDestination %s' % (q_data['transaction_id']))
@@ -254,7 +245,3 @@ class CaptureDestinationHandler(ProcessingAbstractHandler):
             yield self.rabbitmq_publisher.publish(json.dumps(outer_queue_data))
             # self.rabbitmq_publisher.close_connection()
             return q_data
-
-
-
-

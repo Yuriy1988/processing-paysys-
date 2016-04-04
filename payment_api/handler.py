@@ -1,9 +1,10 @@
 import traceback
-from tornado import gen
 import tornado.web
+from tornado import gen
 
 import config
 from rabbitmq_connector import PublishingClient
+
 
 class BaseHandler(tornado.web.RequestHandler):
     @property
@@ -26,9 +27,3 @@ class MainHandler(BaseHandler):
             self.finish()
         except ValueError:
             print(traceback.format_exc())
-
-
-
-
-
-

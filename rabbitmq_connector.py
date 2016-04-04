@@ -1,18 +1,17 @@
-import json
-import logging
 import pika
-from pika.adapters.tornado_connection import TornadoConnection
-import tornado
-from tornado.concurrent import Future
-import tornado.ioloop
+import logging
 from tornado import gen
+from tornado.concurrent import Future
+from pika.adapters.tornado_connection import TornadoConnection
+
 import config
 
 
 log = logging.basicConfig(level=logging.INFO, format=config.LOG_FORMAT)
 
-class ConsumingClient(object):
-    def __init__(self, url='', queue_name = "default"):
+
+class ConsumingClient:
+    def __init__(self, url='', queue_name="default"):
         self.queue_name = queue_name
         self.url = url
         self.bind_future = Future()
@@ -46,11 +45,10 @@ class ConsumingClient(object):
         self.message_future = Future()
         return message
 
-        # self.channel.basic_ack(basic_deliver.delivery_tag)
 
+class PublishingClient:
 
-class PublishingClient(object):
-    def __init__(self, url= '', queue_name = "default"):
+    def __init__(self, url="", queue_name="default"):
 
         self.queue_name = queue_name
         self.channel = None
@@ -59,14 +57,12 @@ class PublishingClient(object):
         self.publish_future = Future()
         self.connection = None
 
-
     def connect(self):
         if self.connection:
             self.bind_future.set_result(True)
             return self.bind_future
         self.connection = TornadoConnection(parameters=pika.URLParameters(self.url), on_open_callback=self.on_connected)
         return self.bind_future
-
 
     def on_connected(self, connection):
         self.connection.channel(self.on_channel_open)
@@ -81,7 +77,6 @@ class PublishingClient(object):
 
     def on_queue_declared(self, frame):
         self.bind_future.set_result(True)
-
 
     def publish(self, body):
         self._publish(self.queue_name, body)

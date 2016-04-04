@@ -1,13 +1,13 @@
-import hashlib
 import json
 import logging
-from random import random, randint, choice
+from random import randint, choice
 from tornado import gen, httpclient
 
 
 log = logging.getLogger(__name__)
 
-class VisaMasterPaymentsAbstract():
+
+class VisaMasterPaymentsAbstract:
 
     password = 'test'
     paym_system_url = 'http://test.test'
@@ -30,7 +30,6 @@ class VisaMasterPaymentsAbstract():
         adopt_data = self.adapt_order_status_data(order_id)
         response = yield self.send(adopt_data)
         return self.serialize_capture_response(response)
-
 
     @gen.coroutine
     def send(self, data, url):
@@ -108,7 +107,6 @@ class TestPaymentSystem(VisaMasterPaymentsAbstract):
         capture_data['sign'] = sign.decode('windows-1252')
         return json.dumps(capture_data)
 
-
     def serialize_auth_response(self, response):
         try:
             raw_response = json.loads(response)
@@ -130,7 +128,6 @@ class TestPaymentSystem(VisaMasterPaymentsAbstract):
         if data['status'] == '3ds':
             data['url'] = raw_response['url']
         return data
-
 
     @gen.coroutine
     def send(self, data, url):

@@ -1,10 +1,12 @@
 import json
 import logging
+
 import config
 from processing import crypt
 
 
 log = logging.getLogger(__name__)
+
 
 def visa_master_serializer(data=None):
     if not data:
@@ -23,8 +25,6 @@ def visa_master_serializer(data=None):
     raise ValueError
 
 
-
-
 def paypal_serializer(data=None):
     if not data:
         raise ValueError
@@ -37,6 +37,7 @@ def bitcoin_serializer(data=None):
 
     return data
 
+
 transaction_source_serializers = {
     'credit_card': visa_master_serializer,
     'paypal': paypal_serializer,
@@ -48,7 +49,7 @@ def request_serialazer(request):
 
     data = json.loads(request)
     transaction_uuid = data.get('id')
-    transaction_type = data.get('payment_type')   #type of paymen system VISA bitcoin paypal
+    transaction_type = data.get('payment_type')   # type of paymen system VISA bitcoin paypal
     transaction_source_serializer = transaction_source_serializers.get(transaction_type)
     transaction_currency = data.get('currency')
     transaction_amount = data.get('amount')
