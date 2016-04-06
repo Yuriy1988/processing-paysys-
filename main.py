@@ -9,6 +9,7 @@ import config
 from payment_api.handler import MainHandler
 from processing.processing_daemon import AuthSourceHandler, AuthDestinationHandler, CaptureSourceHandler, CaptureDestinationHandler, \
     NewTransactionHandler
+from processing import crypt
 
 
 queues = {
@@ -47,6 +48,17 @@ class Application(tornado.web.Application):
         super(Application, self).__init__(handlers, **settings)
 
 
+def rsa_setup():
+    if config.DEBUG:
+        if crypt.is_debug_key_exists():
+            config.RSA_KEY = crypt.debug_load_key()
+        else:
+            config.RSA_KEY = crypt.debug_generate()
+    else:
+        config.RSA_KEY = crypt.generate()
+    crypt.update_public_key_on_client(config.RSA_KEY)
+
+
 def main():
     logging.basicConfig(level=logging.DEBUG, format=config.LOG_FORMAT)
 
@@ -55,9 +67,12 @@ def main():
     app = tornado.httpserver.HTTPServer(application)
     app.listen(8888)
 
+    rsa_setup()
+
     new_transactions = NewTransactionHandler(
         application.db,
         q_after=queues['auth_destination'])
+
     auth_destination = AuthDestinationHandler(
         application.db,
         q_init=queues['auth_destination'],
@@ -83,6 +98,7 @@ def main():
     inst.add_callback(auth_destination.main_processing)
     inst.add_callback(capture_source.main_processing)
     inst.add_callback(capture_destination.main_processing)
+
     inst.start()
 
 

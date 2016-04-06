@@ -11,7 +11,7 @@ log = logging.getLogger(__name__)
 def visa_master_serializer(data=None):
     if not data:
         raise ValueError
-    decrypted_data = crypt.decryypt(data, config.SECRET_KEY)
+    decrypted_data = crypt.decrypt(data, config.RSA_KEY)
     card_number = decrypted_data.get('cardnumber')
     expdate = decrypted_data.get('expdate')
     cvv = decrypted_data.get('cvv')

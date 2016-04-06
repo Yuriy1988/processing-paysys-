@@ -1,6 +1,5 @@
 
-SECRET_KEY = 'kasjkfhgqawoif'
-PUBLIC_KEY = 'kasjkfhgqawoif'
+RSA_KEY = None
 
 CURRENCY_LIST = ['EUR', 'USD', 'UAH', 'RUR']
 

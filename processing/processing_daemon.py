@@ -77,7 +77,7 @@ class NewTransactionHandler(ProcessingAbstractHandler):
         transaction_data['status'] = 'initiate'
         data_to_base = transaction_data.copy()
         data_to_base['source_merchant_data'] = json.dumps(data_to_base['source_merchant_data'])
-        data_to_base['source'] = crypt.encrypt(json.dumps(data_to_base['source']), config.SECRET_KEY)
+        data_to_base['source'] = crypt.encrypt(json.dumps(data_to_base['source']), config.RSA_KEY)
         data_to_base['destination'] = json.dumps(data_to_base['destination'])
         transaction_id = yield self.db.db_insert_transacton(data_to_base)
         transaction_data['transaction_id'] = transaction_id

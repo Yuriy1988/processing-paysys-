@@ -1,9 +1,61 @@
-# TODO: make decryptor and encryptor
+import os
+import base64
+import config
+import requests
+from Crypto.PublicKey import RSA
+from Crypto.Cipher import PKCS1_OAEP
 
 
-def encrypt(data, publick_key):
-    return data
+NBITS = 2048
+RSA_FILE_NAME = 'public.pem'
+DEBUG_RSA_FILE_NAME = 'debug_rsa_key.pem'
+
+HOST_NAME = '192.168.1.118:7254'
+API_VERSION = 'dev'
+RSA_UPDATE_API_URL = 'http://{host}/api/client/{version}/security/public_key'.format(host=HOST_NAME, version=API_VERSION)
 
 
-def decryypt(data, secret_key):
-    return data
+def encrypt(data, key):
+    cipher = PKCS1_OAEP.new(key)
+    return base64.b64encode(cipher.encrypt(data.encode()))
+
+
+def decrypt(b64_data, key):
+    cipher = PKCS1_OAEP.new(key)
+    data = base64.b64decode(b64_data)
+    return cipher.decrypt(data).decode()
+
+
+def debug_generate():
+    key = RSA.generate(NBITS)
+    config.RSA_KEY = key
+
+    with open(DEBUG_RSA_FILE_NAME, 'wb') as f:
+        f.write(key.exportKey('PEM'))
+
+    return key
+
+
+def debug_load_key():
+    return RSA.importKey(open(DEBUG_RSA_FILE_NAME, 'rb').read())
+
+
+def is_debug_key_exists():
+    return os.path.exists(DEBUG_RSA_FILE_NAME)
+
+
+def generate():
+    key = RSA.generate(NBITS)
+    config.RSA_KEY = key
+
+    with open(RSA_FILE_NAME, 'wb') as f:
+        f.write(key.publickey().exportKey('PEM'))
+
+    return key
+
+
+def update_public_key_on_client(new_key):
+    url = RSA_UPDATE_API_URL
+    key_json = {"key": new_key.publickey().exportKey('PEM').decode()}
+    response = requests.post(url, json=key_json)
+    return response
