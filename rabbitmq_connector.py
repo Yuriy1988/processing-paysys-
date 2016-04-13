@@ -10,15 +10,24 @@ import config
 log = logging.basicConfig(level=logging.INFO, format=config.LOG_FORMAT)
 
 
+def get_connection_parameters():
+    return pika.ConnectionParameters(
+        host=config.QUEUE_HOST,
+        port=config.QUEUE_PORT,
+        credentials=pika.credentials.PlainCredentials(
+            username=config.QUEUE_USERNAME,
+            password=config.QUEUE_PASSWORD,
+        )
+    )
+
+
 class ConsumingClient:
-    def __init__(self, url='', queue_name="default"):
-        self.queue_name = queue_name
-        self.url = url
+    def __init__(self):
         self.bind_future = Future()
         self.message_future = Future()
 
     def connect(self):
-        self.connection = TornadoConnection(parameters=pika.URLParameters(self.url), on_open_callback=self.on_connected)
+        self.connection = TornadoConnection(parameters=get_connection_parameters(), on_open_callback=self.on_connected)
         return self.bind_future
 
     def on_connected(self, connection):
@@ -26,7 +35,7 @@ class ConsumingClient:
 
     def on_channel_open(self, channel):
         self.channel = channel
-        channel.queue_declare(queue=self.queue_name,
+        channel.queue_declare(queue=config.QUEUE_NAME,
                               durable=True,
                               exclusive=False,
                               auto_delete=False,
@@ -34,7 +43,7 @@ class ConsumingClient:
 
     def on_queue_declared(self, frame):
         self.bind_future.set_result(True)
-        self.channel.basic_consume(self.handle_delivery, queue=self.queue_name, no_ack=True)
+        self.channel.basic_consume(self.handle_delivery, queue=config.QUEUE_NAME, no_ack=True)
 
     def handle_delivery(self, channel, method, header, body):
         self.message_future.set_result(body)
@@ -61,7 +70,7 @@ class PublishingClient:
         if self.connection:
             self.bind_future.set_result(True)
             return self.bind_future
-        self.connection = TornadoConnection(parameters=pika.URLParameters(self.url), on_open_callback=self.on_connected)
+        self.connection = TornadoConnection(parameters=get_connection_parameters(), on_open_callback=self.on_connected)
         return self.bind_future
 
     def on_connected(self, connection):
@@ -71,8 +80,6 @@ class PublishingClient:
         self.channel = channel
         channel.queue_declare(queue=self.queue_name,
                               durable=True,
-                              exclusive=False,
-                              auto_delete=False,
                               callback=self.on_queue_declared)
 
     def on_queue_declared(self, frame):
@@ -92,3 +99,25 @@ class PublishingClient:
     def close_connection(self):
         """This method closes the connection to RabbitMQ."""
         self.connection.close()
+
+if __name__ == '__main__':
+
+    from tornado.ioloop import IOLoop
+
+    @gen.coroutine
+    def main_processing():
+        rabbitmq_consumer = ConsumingClient()
+        try:
+            print("wait for connect")
+            yield rabbitmq_consumer.connect()
+            print("connected!")
+            while True:
+                print("wait for message")
+                new_task = yield rabbitmq_consumer.get_message()
+                print(new_task)
+        except Exception as e:
+            print(e)
+
+
+    IOLoop.current().add_callback(main_processing)
+    IOLoop.current().start()

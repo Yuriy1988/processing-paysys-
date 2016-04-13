@@ -18,7 +18,6 @@ class VisaMasterPaymentsAbstract:
         response = yield self.send(adopt_data, self.paym_system_url)
         return self.serialize_auth_response(response)
 
-
     @gen.coroutine
     def capture(self, cardnumber, cvv, expdate, merid, amount, ccy, description, hold_id):
         adopt_data = self.adapt_capture_data(cardnumber, cvv, expdate, merid, amount, ccy, description,hold_id)
@@ -100,7 +99,7 @@ class TestPaymentSystem(VisaMasterPaymentsAbstract):
         return json.dumps(capture_data)
 
     def adapt_order_status_data(self, order_id):
-        capture_data = {'order_id': order_id,}
+        capture_data = {'order_id': order_id, }
         sign = self.signature(data=capture_data,
                               schem=['order_id'],
                               password=self.password)
@@ -133,7 +132,7 @@ class TestPaymentSystem(VisaMasterPaymentsAbstract):
     def send(self, data, url):
         time = randint(1, 10)
         yield gen.sleep(time)
-        # it's a kind of magic!!!
+        # it's kind a magic!!!
         if randint(0, 100) > 80:
             return json.dumps({'status': '3ds', 'order_id': randint(0, 10000), 'url':'https://bank.net/gasjihglsihjgfh'})
         if randint(0, 100) > 90:

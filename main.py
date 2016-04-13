@@ -6,9 +6,8 @@ import tornado.httpserver
 from tornado.queues import PriorityQueue
 
 import config
-from payment_api.handler import MainHandler
-from processing.processing_daemon import AuthSourceHandler, AuthDestinationHandler, CaptureSourceHandler, CaptureDestinationHandler, \
-    NewTransactionHandler
+from processing.processing_daemon import AuthSourceHandler, AuthDestinationHandler, CaptureSourceHandler,\
+    CaptureDestinationHandler, NewTransactionHandler
 from processing import crypt
 
 
@@ -27,9 +26,7 @@ class Application(tornado.web.Application):
     def __init__(self):
 
         """ Configure handlers and settings. """
-        handlers = [
-            (r"/", MainHandler, dict(q=queues['auth_source'])),
-        ]
+        handlers = []
 
         settings = dict(
             debug=True,
@@ -78,8 +75,10 @@ def main():
         q_init=queues['auth_destination'],
         q_void=queues['void'],
         q_after=queues['auth_source'])
+
     auth_source = AuthSourceHandler(
-        application.db, q_init=queues['auth_source'],
+        application.db,
+        q_init=queues['auth_source'],
         q_void=queues['void'],
         q_after=queues['capture_source'])
 
@@ -88,6 +87,7 @@ def main():
         q_init=queues['capture_source'],
         q_void=queues['void'],
         q_after=queues['capture_destination'])
+
     capture_destination = CaptureDestinationHandler(
         application.db,
         q_init=queues['capture_destination'],
