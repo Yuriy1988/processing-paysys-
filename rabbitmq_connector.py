@@ -1,8 +1,8 @@
 import pika
 import logging
-from tornado import gen
-from tornado.concurrent import Future
+import json
 from pika.adapters.tornado_connection import TornadoConnection
+from tornado.concurrent import Future
 
 import config
 
@@ -10,24 +10,63 @@ import config
 log = logging.basicConfig(level=logging.INFO, format=config.LOG_FORMAT)
 
 
-def get_connection_parameters():
+def _get_connection_parameters():
+    """
+    Return pika connection parameters object.
+    """
     return pika.ConnectionParameters(
-        host=config.QUEUE_HOST,
-        port=config.QUEUE_PORT,
+        host=config.RABBIT_HOST,
+        port=config.RABBIT_PORT,
+        virtual_host=config.RABBIT_VIRTUAL_HOST,
         credentials=pika.credentials.PlainCredentials(
-            username=config.QUEUE_USERNAME,
-            password=config.QUEUE_PASSWORD,
+            username=config.RABBIT_USERNAME,
+            password=config.RABBIT_PASSWORD,
         )
     )
 
 
-class ConsumingClient:
+class RabbitAsyncConsumer:
+    """Wraps RabbitMQ functionality"""
+
+    def __init__(self, ioloop):
+        self.consumer = _ConsumingAsyncClient()
+        ioloop.add_callback(self._main_loop)
+
+    async def _main_loop(self):
+        try:
+            await self.consumer.connect()
+        except Exception as e:
+            print(e)
+
+    async def get(self):
+        message = await self.consumer.get_message()
+        return json.loads(message.decode())
+
+
+class RabbitPublisher:
+
+    def put(self, element):
+        queue = config.OUTCOME_QUEUE_NAME
+        body = json.dumps(element)
+        params = _get_connection_parameters()
+        publish_properties = pika.BasicProperties(content_type='text/plain', delivery_mode=2)
+
+        with pika.BlockingConnection(params) as connection:
+            channel = connection.channel()
+            channel.queue_declare(queue=queue, durable=True, exclusive=False, auto_delete=False)
+            channel.basic_publish(exchange='', routing_key=queue, body=body, properties=publish_properties)
+
+
+class _ConsumingAsyncClient:
     def __init__(self):
         self.bind_future = Future()
         self.message_future = Future()
+        self.channel = None
+        self.connection = None
 
     def connect(self):
-        self.connection = TornadoConnection(parameters=get_connection_parameters(), on_open_callback=self.on_connected)
+        params = _get_connection_parameters()
+        self.connection = TornadoConnection(parameters=params, on_open_callback=self.on_connected)
         return self.bind_future
 
     def on_connected(self, connection):
@@ -35,7 +74,7 @@ class ConsumingClient:
 
     def on_channel_open(self, channel):
         self.channel = channel
-        channel.queue_declare(queue=config.QUEUE_NAME,
+        channel.queue_declare(queue=config.INCOME_QUEUE_NAME,
                               durable=True,
                               exclusive=False,
                               auto_delete=False,
@@ -43,81 +82,12 @@ class ConsumingClient:
 
     def on_queue_declared(self, frame):
         self.bind_future.set_result(True)
-        self.channel.basic_consume(self.handle_delivery, queue=config.QUEUE_NAME, no_ack=True)
+        self.channel.basic_consume(self.handle_delivery, queue=config.INCOME_QUEUE_NAME, no_ack=True)
 
     def handle_delivery(self, channel, method, header, body):
         self.message_future.set_result(body)
 
-    @gen.coroutine
-    def get_message(self):
-        message = yield self.message_future
+    async def get_message(self):
+        message = await self.message_future
         self.message_future = Future()
         return message
-
-
-class PublishingClient:
-
-    def __init__(self, url="", queue_name="default"):
-
-        self.queue_name = queue_name
-        self.channel = None
-        self.url = url
-        self.bind_future = Future()
-        self.publish_future = Future()
-        self.connection = None
-
-    def connect(self):
-        if self.connection:
-            self.bind_future.set_result(True)
-            return self.bind_future
-        self.connection = TornadoConnection(parameters=get_connection_parameters(), on_open_callback=self.on_connected)
-        return self.bind_future
-
-    def on_connected(self, connection):
-        self.connection.channel(self.on_channel_open)
-
-    def on_channel_open(self, channel):
-        self.channel = channel
-        channel.queue_declare(queue=self.queue_name,
-                              durable=True,
-                              callback=self.on_queue_declared)
-
-    def on_queue_declared(self, frame):
-        self.bind_future.set_result(True)
-
-    def publish(self, body):
-        self._publish(self.queue_name, body)
-        return self.publish_future
-
-    def _publish(self, queue, body):
-        properties = pika.BasicProperties(content_type='text/plain')
-        a = self.channel.basic_publish('', queue, body, properties)
-        if not self.publish_future.done():
-            self.publish_future.set_result(True)
-        return self.publish_future
-
-    def close_connection(self):
-        """This method closes the connection to RabbitMQ."""
-        self.connection.close()
-
-if __name__ == '__main__':
-
-    from tornado.ioloop import IOLoop
-
-    @gen.coroutine
-    def main_processing():
-        rabbitmq_consumer = ConsumingClient()
-        try:
-            print("wait for connect")
-            yield rabbitmq_consumer.connect()
-            print("connected!")
-            while True:
-                print("wait for message")
-                new_task = yield rabbitmq_consumer.get_message()
-                print(new_task)
-        except Exception as e:
-            print(e)
-
-
-    IOLoop.current().add_callback(main_processing)
-    IOLoop.current().start()
