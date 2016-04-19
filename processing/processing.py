@@ -1,6 +1,5 @@
-import motor
 from pi import process, ProcessingException
-from rabbitmq_connector import RabbitAsyncConsumer, RabbitPublisher
+from processing.rabbitmq_connector import RabbitAsyncConsumer, RabbitPublisher
 from tornado.queues import PriorityQueue
 
 
@@ -125,8 +124,8 @@ class AcceptingStep(_InnerStep):
 
     async def process(self, transaction):
         transaction["_id"] = transaction.pop("id")  # change 'id' ot '_id'
-        await db.transactions.insert(transaction)
-        return transaction  # FIXME: Add decryption
+        await self.db.transactions.insert(transaction)
+        return transaction
 
 
 class QueueStep(_InnerStep):
@@ -197,13 +196,3 @@ class Processing:
             return process(pi_name, status.lower(), transaction)
         return payment_method
 
-
-if __name__ == '__main__':
-    import config
-    from tornado.ioloop import IOLoop
-
-    db = getattr(motor.MotorClient(), config.DB_NAME)
-
-    p = Processing(db=db)
-    p.init(ioloop=IOLoop.current())
-    IOLoop.current().start()

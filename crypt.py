@@ -57,5 +57,8 @@ def generate():
 def update_public_key_on_client(new_key):
     url = RSA_UPDATE_API_URL
     key_json = {"key": new_key.publickey().exportKey('PEM').decode()}
-    response = requests.post(url, json=key_json)
-    return response
+    try:
+        response = requests.post(url, json=key_json)
+        return response
+    except requests.exceptions.ConnectionError:
+        return
