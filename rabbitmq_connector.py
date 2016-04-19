@@ -7,7 +7,7 @@ from tornado.concurrent import Future
 import config
 
 
-log = logging.basicConfig(level=logging.INFO, format=config.LOG_FORMAT)
+log = logging.basicConfig(level=logging.ERROR, format=config.LOG_FORMAT)
 
 
 def _get_connection_parameters():

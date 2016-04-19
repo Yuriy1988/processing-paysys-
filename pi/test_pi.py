@@ -1,9 +1,9 @@
 import time
 import json
 
-from pi import BasePI
+from pi import BasePI, ProcessingException
 
-DELAY_SEC = 1
+DELAY_SEC = 0
 
 
 class TestPI(BasePI):
