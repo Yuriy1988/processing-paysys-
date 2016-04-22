@@ -1,5 +1,5 @@
 import motor
-from processing.processing import Processing
+from app.processing import Processing
 from tornado.ioloop import IOLoop
 
 import config

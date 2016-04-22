@@ -1,5 +1,6 @@
 from pi import process, ProcessingException
-from processing.rabbitmq_connector import RabbitAsyncConsumer, RabbitPublisher
+from app.rabbitmq_connector import RabbitAsyncConsumer, RabbitPublisher
+from pymongo.errors import AutoReconnect
 from tornado.queues import PriorityQueue
 
 
@@ -91,6 +92,8 @@ class StepProcessor:
                     await self.success(transaction)
                 except ProcessingException as ex:
                     await self.fail(ex, transaction)
+            except AutoReconnect as ex:
+                await self.exception("MongoDB (AutoReconnect): " + str(ex), transaction)
             except Exception as ex:
                 await self.exception(ex, transaction)
 
