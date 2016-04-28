@@ -1,7 +1,10 @@
-from pi import process, ProcessingException
-from app.rabbitmq_connector import RabbitAsyncConsumer, RabbitPublisher
+import logging
 from pymongo.errors import AutoReconnect
 from tornado.queues import PriorityQueue
+
+from app.rabbitmq_connector import RabbitAsyncConsumer, RabbitPublisher
+from pi import process, ProcessingException
+from config_loader import config
 
 
 class STATUS:
@@ -84,18 +87,29 @@ class StepProcessor:
 
     async def loop(self):
         transaction = None
+        logging.info("Start main loop for " + self.step_name)
         while True:
             try:
                 transaction = await self.queue.get()
                 try:
                     transaction = await self.process(transaction)
                     await self.success(transaction)
+                    logging.info("Successfully processed: " + self.step_name)
                 except ProcessingException as ex:
+                    logging.error("Processing error: " + str(ex))
                     await self.fail(ex, transaction)
             except AutoReconnect as ex:
+                logging.error("Processing DB error: " + str(ex))
                 await self.exception("MongoDB (AutoReconnect): " + str(ex), transaction)
             except Exception as ex:
+                logging.error("Processing fatal failure: " + str(ex))
                 await self.exception(ex, transaction)
+
+    def stop(self):
+        self.close()
+
+    def close(self):
+        pass
 
     async def process(self, transaction):
         return transaction
@@ -107,7 +121,7 @@ class StepProcessor:
         pass
 
     async def exception(self, error, transaction):
-        RabbitPublisher().put({"id": transaction["_id"], "status": "FAIL", "error": str(error)})
+        RabbitPublisher(config.OUTCOME_QUEUE_NAME).put({"id": transaction["_id"], "status": "FAIL", "error": str(error)})
 
 
 class _InnerStep(StepProcessor):
@@ -123,12 +137,15 @@ class _InnerStep(StepProcessor):
 
 class AcceptingStep(_InnerStep):
     def __init__(self, step_name, ioloop, db, succeed_queue, fault_queue, payment_interface):
-        super().__init__(RabbitAsyncConsumer(ioloop), step_name, ioloop, db, succeed_queue, fault_queue)
+        super().__init__(RabbitAsyncConsumer(ioloop, config.INCOME_QUEUE_NAME), step_name, ioloop, db, succeed_queue, fault_queue)
 
     async def process(self, transaction):
         transaction["_id"] = transaction.pop("id")  # change 'id' ot '_id'
         await self.db.transactions.insert(transaction)
         return transaction
+
+    def close(self):
+        self.queue.close_connection()
 
 
 class QueueStep(_InnerStep):
@@ -143,7 +160,7 @@ class QueueStep(_InnerStep):
 class _FinalStep(StepProcessor):
     def __init__(self, step_name, ioloop, db, succeed_queue, fault_queue, payment_interface):
         super().__init__(PriorityQueue(), step_name, ioloop, db, succeed_queue, fault_queue)
-        self.rabbit = RabbitPublisher()
+        self.rabbit = RabbitPublisher(config.OUTCOME_QUEUE_NAME)
 
     async def fail(self, error, transaction):
         transaction["error"] = str(error)
@@ -173,6 +190,7 @@ class Processing:
     def init(self, ioloop):
         """Generate queues, handlers and add callbacks to ioloop"""
         self._generate_status_handlers(ioloop)
+        logging.info("Processing initialized")
 
     def _generate_status_handlers(self, ioloop):
 
@@ -192,10 +210,13 @@ class Processing:
                 handler.fault_queue = self.handlers[PSM[status][STATE_ACTION.FAIL]].queue
             ioloop.add_callback(handler.loop)
 
+    def stop(self):
+        for handler in self.handlers.values():
+            handler.close()
+
     @staticmethod
     def _pi_factory(status):
         def payment_method(transaction):
             pi_name = transaction["source"]["paysys_contract"]["payment_interface"]
             return process(pi_name, status.lower(), transaction)
         return payment_method
-

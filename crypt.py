@@ -1,10 +1,10 @@
 import os
 import base64
+import logging
 import config
 import requests
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
-
 
 NBITS = 2048
 RSA_FILE_NAME = 'public.pem'
@@ -59,6 +59,10 @@ def update_public_key_on_client(new_key):
     key_json = {"key": new_key.publickey().exportKey('PEM').decode()}
     try:
         response = requests.post(url, json=key_json)
+        if response.status_code == 200:
+            logging.info("Client rsa key updated successfully.")
+        else:
+            logging.warning("Client rsa key hasn't updated successfully.")
         return response
     except requests.exceptions.ConnectionError:
-        return
+        logging.error("Client rsa key update error. Connection error.")

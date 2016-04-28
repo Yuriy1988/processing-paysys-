@@ -1,0 +1,35 @@
+{
+    "version": 1,
+    "disable_existing_loggers": false,
+    "formatters": {
+        "simple": {
+            "format": "PROCESSING: %(asctime)s %(levelname) -8s %(name) -40s | %(funcName) -30s  -  %(message)s",
+            "datefmt": "[%d.%m %H:%M:%S]"
+        }
+    },
+
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "level": "DEBUG",
+            "formatter": "simple",
+            "stream": "ext://sys.stdout"
+        }
+    },
+
+    "loggers": {
+        "debug": {
+            "level": "DEBUG",
+            "handlers": ["console"]
+        },
+        "production": {
+            "level": "INFO",
+            "handlers": ["console"]
+        }
+    },
+
+    "root": {
+        "level": "INFO",
+        "handlers": ["console"]
+    }
+}

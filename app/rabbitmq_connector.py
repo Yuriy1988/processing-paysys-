@@ -1,13 +1,10 @@
+import json
 import pika
 import logging
-import json
 from pika.adapters.tornado_connection import TornadoConnection
 from tornado.concurrent import Future
 
-import config
-
-
-log = logging.basicConfig(level=logging.ERROR, format=config.LOG_FORMAT)
+from config_loader import config
 
 
 def _get_connection_parameters():
@@ -28,7 +25,7 @@ def _get_connection_parameters():
 class RabbitAsyncConsumer:
     """Wraps RabbitMQ functionality"""
 
-    def __init__(self, ioloop, queue_name=config.INCOME_QUEUE_NAME):
+    def __init__(self, ioloop, queue_name):
         self.consumer = _ConsumingAsyncClient(queue_name)
         ioloop.add_callback(self._main_loop)
 
@@ -36,7 +33,7 @@ class RabbitAsyncConsumer:
         try:
             await self.consumer.connect()
         except Exception as e:
-            print(e)
+            logging.error(e)
 
     async def get(self):
         message = await self.consumer.get_message()
@@ -48,7 +45,7 @@ class RabbitAsyncConsumer:
 
 class RabbitConsumer:
 
-    def __init__(self, queue_name=config.OUTCOME_QUEUE_NAME):
+    def __init__(self, queue_name):
         self.queue_name = queue_name
 
     def get(self):
@@ -56,7 +53,7 @@ class RabbitConsumer:
 
         channel = connection.channel()
 
-        channel.queue_declare(queue=self.queue_name , durable=True)
+        channel.queue_declare(queue=self.queue_name, durable=True)
 
         result = None
 
@@ -74,7 +71,7 @@ class RabbitConsumer:
 
 class RabbitPublisher:
 
-    def __init__(self, queue_name=config.OUTCOME_QUEUE_NAME):
+    def __init__(self, queue_name):
         self.queue_name = queue_name
 
     def put(self, element):
@@ -85,9 +82,9 @@ class RabbitPublisher:
         with pika.BlockingConnection(params) as connection:
             channel = connection.channel()
             channel.queue_declare(queue=self.queue_name, durable=True, exclusive=False, auto_delete=False)
-            print("RabbitMQ PUB:", self.queue_name, "queue declared")
+            logging.info("RabbitMQ PUB: " + self.queue_name + " queue declared")
             channel.basic_publish(exchange='', routing_key=self.queue_name, body=body, properties=publish_properties)
-            print("RabbitMQ PUB: sent:", body)
+            logging.info("RabbitMQ PUB: sent: " + body)
 
 
 class _ConsumingAsyncClient:
@@ -100,9 +97,9 @@ class _ConsumingAsyncClient:
 
     def connect(self):
         params = _get_connection_parameters()
-        print("RabbitMQ CNS: Connecting...")
+        logging.info("RabbitMQ CNS: Connecting...")
         self.connection = TornadoConnection(parameters=params, on_open_callback=self.on_connected)
-        print("RabbitMQ CNS: Connected!")
+        logging.info("RabbitMQ CNS: Connected!")
         return self.bind_future
 
     def on_connected(self, connection):
@@ -115,7 +112,7 @@ class _ConsumingAsyncClient:
                               exclusive=False,
                               auto_delete=False,
                               callback=self.on_queue_declared)
-        print("RabbitMQ CNS:", config.INCOME_QUEUE_NAME, "queue declared")
+        logging.info("RabbitMQ CNS: " + config.INCOME_QUEUE_NAME + " queue declared")
 
     def on_queue_declared(self, frame):
         self.bind_future.set_result(True)
@@ -127,7 +124,7 @@ class _ConsumingAsyncClient:
     async def get_message(self):
         message = await self.message_future
         self.message_future = Future()
-        print("RabbitMQ CNS: New message", message)
+        logging.info("RabbitMQ CNS: New message: " + str(message))
         return message
 
     def close_connection(self):
