@@ -1,7 +1,8 @@
 import json
 
-import config
 import crypt
+import store_api
+from config_loader import config
 
 
 def decode_transaction(func):
@@ -17,6 +18,10 @@ def decode_transaction(func):
     return decoder
 
 
+class ProcessingException(Exception):
+    pass
+
+
 class BasePI:
 
     @staticmethod
@@ -25,6 +30,8 @@ class BasePI:
 
     @staticmethod
     def auth_source(transaction):
+        if not store_api.check(transaction):
+            raise ProcessingException("Store checking failed.")
         return transaction
 
     @staticmethod
@@ -33,6 +40,7 @@ class BasePI:
 
     @staticmethod
     def capture_source(transaction):
+        store_api.withdraw(transaction)
         return transaction
 
     @staticmethod

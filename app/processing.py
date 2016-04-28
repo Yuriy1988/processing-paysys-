@@ -3,7 +3,7 @@ from pymongo.errors import AutoReconnect
 from tornado.queues import PriorityQueue
 
 from app.rabbitmq_connector import RabbitAsyncConsumer, RabbitPublisher
-from pi import process, ProcessingException
+from paysys_pi import process, ProcessingException
 from config_loader import config
 
 

@@ -1,9 +1,5 @@
-from pi.base import BasePI
+from paysys_pi.base import BasePI, ProcessingException
 from importlib import reload
-
-
-class ProcessingException(Exception):
-    pass
 
 
 def process(pi_name, method_name, transaction):

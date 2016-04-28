@@ -1,7 +1,7 @@
 import time
 import json
 
-from pi import BasePI, ProcessingException
+from paysys_pi import BasePI, ProcessingException
 
 DELAY_SEC = 0
 
@@ -16,6 +16,7 @@ class TestPI(BasePI):
 
     @staticmethod
     def auth_source(transaction):
+        transaction = BasePI.auth_source(transaction)
         time.sleep(DELAY_SEC)
         print('AUTH SRC:    ', json.dumps(transaction))
         return transaction

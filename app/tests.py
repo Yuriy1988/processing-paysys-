@@ -8,7 +8,7 @@ import config_loader
 
 # changing configs before importing Processing
 
-from pi import ProcessingException
+from paysys_pi import ProcessingException
 from app.processing import Processing
 from app.rabbitmq_connector import RabbitPublisher, RabbitAsyncConsumer
 
@@ -18,6 +18,11 @@ config.load_from_file("config", "Testing")
 
 
 class ProcessingTests(unittest.TestCase):
+    _transaction = {
+        "id": "876",
+        "store_api": "test_api",
+        "source": {"paysys_contract": {"payment_interface": "test_pi"}}
+    }
 
     def setUp(self):
         self.transaction = None
@@ -66,21 +71,21 @@ class ProcessingTests(unittest.TestCase):
         return result.message
 
     def test_ok(self):
-        self.transaction = {"id": "876", "source": {"paysys_contract": {"payment_interface": "test_pi"}}}
+        self.transaction = self._transaction
         expected_status = "OK"
         actual_result = self.processing_cycle(self.transaction)
-        self.assertEqual(actual_result.get("status"), expected_status)
+        self.assertEqual(expected_status, actual_result.get("status"))
 
     def test_status_order(self):
         Processing._pi_factory = MagicMock(side_effect=self._correct_pi_factory)
-        self.transaction = {"id": "876", "source": {"paysys_contract": {"payment_interface": "test_pi"}}}
+        self.transaction = self._transaction
         expected_order = ['AUTH SOURCE', 'AUTH DESTINATION', 'CAPTURE SOURCE', 'CAPTURE DESTINATION']
         self.processing_cycle(self.transaction)
         self.assertListEqual(expected_order, self.transaction.get("history"))
 
     def test_pi_failure(self):
         Processing._pi_factory = MagicMock(side_effect=self._failure_pi_factory)
-        self.transaction = {"id": "876", "source": {"paysys_contract": {"payment_interface": "test_pi"}}}
+        self.transaction = self._transaction
         expected_order = ['AUTH SOURCE', 'AUTH DESTINATION', 'CAPTURE SOURCE', 'CAPTURE DESTINATION', 'VOID']
         self.processing_cycle(self.transaction)
         self.assertListEqual(expected_order, self.transaction.get("history"))
@@ -89,7 +94,7 @@ class ProcessingTests(unittest.TestCase):
         self.transactio = {"id": "876", "source": {"paysys_contract": {}}}
         expected_status = "FAIL"
         actual_result = self.processing_cycle(self.transactio)
-        self.assertEqual(actual_result.get("status"), expected_status)
+        self.assertEqual(expected_status, actual_result.get("status"))
 
     def test_transaction_exists(self):
         db = getattr(motor.MotorClient(), config.DB_NAME)
@@ -97,7 +102,7 @@ class ProcessingTests(unittest.TestCase):
         self.transactio = {"id": "876"}
         expected_status = "FAIL"
         actual_result = self.processing_cycle(self.transactio)
-        self.assertEqual(actual_result.get("status"), expected_status)
+        self.assertEqual(expected_status, actual_result.get("status"))
 
 
 class TestPaymentInterface:
