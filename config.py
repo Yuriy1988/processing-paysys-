@@ -1,6 +1,6 @@
 
 class Debug:
-    LOG_CONFIG = 'log.json'
+    LOG_CONFIG = 'log_conf.json'
 
     RSA_KEY = None
 
