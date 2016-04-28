@@ -1,11 +1,3 @@
-# import logging
-
-# TODO: move to tornado options
-# TODO: divide debug and production logging
-
-# TODO: routing by BIN
-# TODO: add store PI
-
 
 class Debug:
     LOG_CONFIG = 'log.json'
