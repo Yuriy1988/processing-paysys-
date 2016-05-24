@@ -1,7 +1,7 @@
 import time
 import json
 
-from paysys_pi import BasePI, ProcessingException
+from paysys_pi import BasePI
 
 DELAY_SEC = 0
 

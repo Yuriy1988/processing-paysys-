@@ -1,0 +1,8 @@
+[program:xopay-processing]
+command=/var/www/xopay/processing/venv/bin/python /var/www/xopay/processing/run.py
+directory=/var/www/xopay/processing
+user={user}
+autostart=true
+autorestart=true
+redirect_stderr=true
+

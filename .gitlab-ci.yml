@@ -1,0 +1,9 @@
+stages:
+  - deploy_demo
+
+deploy_demo_task:
+  stage: deploy_demo
+  script:
+    - fab setenv:demo update
+  only:
+    - master
