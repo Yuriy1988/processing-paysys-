@@ -1,3 +1,4 @@
+from datetime import timedelta
 
 class Debug:
     LOG_CONFIG = 'log_config.json'
@@ -25,6 +26,11 @@ class Debug:
     CRYPT_DEBUG_RSA_FILE_NAME = 'debug_rsa_key.pem'
 
     CLIENT_API_URL = 'http://127.0.0.1:7254/api/client/dev'
+
+    AUTH_ALGORITHM='HS512'
+    AUTH_KEY='PzYs2qLh}2$8uUJbBnWB800iYKe5xdYqItRNo7@38yW@tPDVAX}EV5V31*ZK78QS'
+    AUTH_TOKEN_LIFE_TIME=timedelta(minutes=30)
+    AUTH_SYSTEM_USER_ID='xopay.processing'
 
     WAIT_BEFORE_SHUTDOWN_SEC = 3
 

@@ -1,4 +1,5 @@
 import os
+import json
 import base64
 import logging
 import requests
@@ -6,6 +7,7 @@ import requests.exceptions
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
 
+import auth
 from config_loader import config
 
 
@@ -52,9 +54,14 @@ def update_public_key_on_client(new_key):
 
     url = config.CLIENT_API_URL + '/security/public_key'
     key_json = {"key": new_key.publickey().exportKey('PEM').decode()}
+    data = json.dumps(key_json)
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer %s' % auth.get_system_token()
+    }
 
     try:
-        response = requests.post(url, json=key_json)
+        response = requests.post(url, data=data, headers=headers)
         if response.status_code == 200:
             logging.info("Client rsa key updated successfully.")
         else:
