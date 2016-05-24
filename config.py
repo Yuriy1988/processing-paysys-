@@ -20,7 +20,20 @@ class Debug:
     INCOME_QUEUE_NAME = 'transactions_for_processing'
     OUTCOME_QUEUE_NAME = 'transactions_status'
 
+    CRYPT_NBITS = 2048
+    CRYPT_RSA_FILE_NAME = 'public.pem'
+    CRYPT_DEBUG_RSA_FILE_NAME = 'debug_rsa_key.pem'
+
+    CLIENT_API_URL = 'http://127.0.0.1:7254/api/client/dev'
+
     WAIT_BEFORE_SHUTDOWN_SEC = 3
+
+
+class Production(Debug):
+
+    DEBUG = False
+
+    CLIENT_API_URL = 'https://xopay.digitaloutlooks.com/api/client/dev'
 
 
 class Testing(Debug):

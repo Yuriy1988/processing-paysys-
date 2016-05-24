@@ -4,6 +4,7 @@ from datetime import timedelta
 
 import motor
 import signal
+import logging
 import logging.config
 from tornado.ioloop import IOLoop
 
@@ -51,9 +52,10 @@ def main():
 
     IOLoop.current().start()
 
+
 if __name__ == '__main__':
     config = config_loader.config
-    config.load_from_file("config", "Debug")
+    config.load_from_file("config", "Production")
 
     with open(config.LOG_CONFIG, 'rt') as f:
         log_config = json.load(f)
