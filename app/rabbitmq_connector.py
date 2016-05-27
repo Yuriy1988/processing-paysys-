@@ -4,7 +4,7 @@ import logging
 from pika.adapters.tornado_connection import TornadoConnection
 from tornado.concurrent import Future
 
-from config_loader import config
+from config import config
 
 
 _log = logging.getLogger('xop.rmq.connect')

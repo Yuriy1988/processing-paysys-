@@ -8,7 +8,7 @@ from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
 
 import auth
-from config_loader import config
+from config import config
 
 
 _log = logging.getLogger('xop.crypt')

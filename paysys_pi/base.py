@@ -2,7 +2,7 @@ import json
 
 import crypt
 import store_api
-from config_loader import config
+from config import config
 
 
 def decode_transaction(func):

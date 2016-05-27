@@ -4,7 +4,7 @@ from tornado.queues import PriorityQueue
 
 from app.rabbitmq_connector import RabbitAsyncConsumer, RabbitPublisher
 from paysys_pi import process, ProcessingException
-from config_loader import config
+from config import config
 
 
 _log = logging.getLogger('xop.processing')

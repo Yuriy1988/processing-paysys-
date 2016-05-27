@@ -2,7 +2,6 @@
 
 import os
 import motor
-import json
 import signal
 import logging
 import logging.handlers
@@ -10,7 +9,7 @@ from datetime import timedelta
 from tornado.ioloop import IOLoop
 
 import crypt
-import config_loader
+from config import config
 from app.processing import Processing
 
 
@@ -80,7 +79,7 @@ def main():
 
 
 if __name__ == '__main__':
-    config = config_loader.config
+
     config.load_from_file("config", "Production")
 
     logger_configure(config)

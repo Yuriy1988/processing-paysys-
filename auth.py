@@ -1,7 +1,7 @@
 import jwt
 from datetime import datetime
 
-from config_loader import config
+from config import config
 
 __author__ = 'Kostel Serhii'
 

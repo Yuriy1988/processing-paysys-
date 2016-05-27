@@ -4,7 +4,7 @@ import tornado.testing
 import unittest
 from unittest.mock import MagicMock
 
-import config_loader
+from config import config
 
 # changing configs before importing Processing
 
@@ -13,7 +13,6 @@ from app.processing import Processing
 from app.rabbitmq_connector import RabbitPublisher, RabbitAsyncConsumer
 
 
-config = config_loader.config
 config.load_from_file("config", "Testing")
 
 
