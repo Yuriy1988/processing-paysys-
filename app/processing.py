@@ -7,6 +7,9 @@ from paysys_pi import process, ProcessingException
 from config_loader import config
 
 
+_log = logging.getLogger('xop.processing')
+
+
 class STATUS:
     """Statuses for transactions"""
     ACCEPTED = "ACCEPTED"
@@ -87,22 +90,22 @@ class StepProcessor:
 
     async def loop(self):
         transaction = None
-        logging.info("Start main loop for " + self.step_name)
+        _log.info("Start main loop for " + self.step_name)
         while True:
             try:
                 transaction = await self.queue.get()
                 try:
                     transaction = await self.process(transaction)
                     await self.success(transaction)
-                    logging.info("Successfully processed: " + self.step_name)
+                    _log.info("Successfully processed: " + self.step_name)
                 except ProcessingException as ex:
-                    logging.error("Processing error: " + str(ex))
+                    _log.error("Processing error: " + str(ex))
                     await self.fail(ex, transaction)
             except AutoReconnect as ex:
-                logging.error("Processing DB error: " + str(ex))
+                _log.error("Processing DB error: " + str(ex))
                 await self.exception("MongoDB (AutoReconnect): " + str(ex), transaction)
             except Exception as ex:
-                logging.error("Processing fatal failure: " + str(ex))
+                _log.error("Processing fatal failure: " + str(ex))
                 await self.exception(ex, transaction)
 
     def stop(self):
@@ -190,7 +193,7 @@ class Processing:
     def init(self, ioloop):
         """Generate queues, handlers and add callbacks to ioloop"""
         self._generate_status_handlers(ioloop)
-        logging.info("Processing initialized")
+        _log.info("Processing initialized")
 
     def _generate_status_handlers(self, ioloop):
 

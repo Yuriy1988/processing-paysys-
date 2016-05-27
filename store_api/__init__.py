@@ -19,4 +19,4 @@ def _find_api(func_name, transaction):
     if hasattr(pi_class, func_name):
         return getattr(pi_class, func_name)(transaction)
     else:
-        logging.error("Fail to find store API")
+        logging.getLogger('xop.store').error("Fail to find store API")

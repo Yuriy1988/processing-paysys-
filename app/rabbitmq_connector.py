@@ -7,6 +7,9 @@ from tornado.concurrent import Future
 from config_loader import config
 
 
+_log = logging.getLogger('xop.rmq.connect')
+
+
 def _get_connection_parameters():
     """
     Return pika connection parameters object.
@@ -33,7 +36,7 @@ class RabbitAsyncConsumer:
         try:
             await self.consumer.connect()
         except Exception as e:
-            logging.error(e)
+            _log.error(e)
 
     async def get(self):
         message = await self.consumer.get_message()
@@ -82,9 +85,9 @@ class RabbitPublisher:
         with pika.BlockingConnection(params) as connection:
             channel = connection.channel()
             channel.queue_declare(queue=self.queue_name, durable=True, exclusive=False, auto_delete=False)
-            logging.info("RabbitMQ PUB: " + self.queue_name + " queue declared")
+            _log.info("RabbitMQ PUB: " + self.queue_name + " queue declared")
             channel.basic_publish(exchange='', routing_key=self.queue_name, body=body, properties=publish_properties)
-            logging.info("RabbitMQ PUB: sent: " + body)
+            _log.info("RabbitMQ PUB: sent: " + body)
 
 
 class _ConsumingAsyncClient:
@@ -97,9 +100,9 @@ class _ConsumingAsyncClient:
 
     def connect(self):
         params = _get_connection_parameters()
-        logging.info("RabbitMQ CNS: Connecting...")
+        _log.info("RabbitMQ CNS: Connecting...")
         self.connection = TornadoConnection(parameters=params, on_open_callback=self.on_connected)
-        logging.info("RabbitMQ CNS: Connected!")
+        _log.info("RabbitMQ CNS: Connected!")
         return self.bind_future
 
     def on_connected(self, connection):
@@ -112,7 +115,7 @@ class _ConsumingAsyncClient:
                               exclusive=False,
                               auto_delete=False,
                               callback=self.on_queue_declared)
-        logging.info("RabbitMQ CNS: " + config.INCOME_QUEUE_NAME + " queue declared")
+        _log.info("RabbitMQ CNS: " + config.INCOME_QUEUE_NAME + " queue declared")
 
     def on_queue_declared(self, frame):
         self.bind_future.set_result(True)
@@ -124,7 +127,7 @@ class _ConsumingAsyncClient:
     async def get_message(self):
         message = await self.message_future
         self.message_future = Future()
-        logging.info("RabbitMQ CNS: New message: " + str(message))
+        _log.info("RabbitMQ CNS: New message: " + str(message))
         return message
 
     def close_connection(self):

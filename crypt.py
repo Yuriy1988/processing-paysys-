@@ -11,6 +11,9 @@ import auth
 from config_loader import config
 
 
+_log = logging.getLogger('xop.crypt')
+
+
 def encrypt(data, key):
     cipher = PKCS1_OAEP.new(key)
     return base64.b64encode(cipher.encrypt(data.encode()))
@@ -63,9 +66,9 @@ def update_public_key_on_client(new_key):
     try:
         response = requests.post(url, data=data, headers=headers)
         if response.status_code == 200:
-            logging.info("Client rsa key updated successfully.")
+            _log.info("Client rsa key updated successfully.")
         else:
-            logging.warning("Client rsa key hasn't updated successfully.")
+            _log.warning("Client rsa key hasn't updated successfully.")
         return response
     except requests.exceptions.ConnectionError:
-        logging.error("Client rsa key update error. Connection error.")
+        _log.error("Client rsa key update error. Connection error.")

@@ -1,16 +1,40 @@
 #!venv/bin/python
 
+import os
 import motor
 import json
 import signal
 import logging
-import logging.config
+import logging.handlers
 from datetime import timedelta
 from tornado.ioloop import IOLoop
 
 import crypt
 import config_loader
 from app.processing import Processing
+
+
+def logger_configure(log_config):
+
+    if 'LOG_FILE' in log_config and os.access(os.path.dirname(log_config['LOG_FILE']), os.W_OK):
+        log_handler = logging.handlers.RotatingFileHandler(
+            filename=log_config['LOG_FILE'],
+            maxBytes=log_config['LOG_MAX_BYTES'],
+            backupCount=log_config['LOG_BACKUP_COUNT'],
+            encoding='utf8',
+        )
+    else:
+        log_handler = logging.StreamHandler()
+
+    log_formatter = logging.Formatter(fmt=log_config['LOG_FORMAT'], datefmt=log_config['LOG_DATE_FORMAT'])
+    log_handler.setFormatter(log_formatter)
+
+    # root logger
+    logging.getLogger('').addHandler(log_handler)
+    logging.getLogger('').setLevel(log_config['LOG_ROOT_LEVEL'])
+
+    # local logger
+    logging.getLogger(log_config.get('LOG_BASE_NAME', '')).setLevel(log_config['LOG_LEVEL'])
 
 
 def rsa_setup():
@@ -25,13 +49,15 @@ def rsa_setup():
 
 
 def shutdown(processing):
-    logging.info("Stopping processing...")
+    log = logging.getLogger('xop.shutdown')
+
+    log.info("Stopping processing...")
     processing.stop()
     ioloop = IOLoop.current()
 
     def finalize():
         ioloop.stop()
-        logging.info("Service stopped!")
+        log.info("Service stopped!")
 
     wait_sec = config.WAIT_BEFORE_SHUTDOWN_SEC
 
@@ -57,9 +83,6 @@ if __name__ == '__main__':
     config = config_loader.config
     config.load_from_file("config", "Production")
 
-    with open(config.LOG_CONFIG, 'rt') as f:
-        log_config = json.load(f)
-    logging.config.dictConfig(log_config)
-    logging.getLogger("production")
+    logger_configure(config)
 
     main()

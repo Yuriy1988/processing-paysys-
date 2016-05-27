@@ -23,5 +23,8 @@ class ConfigLoader:
         else:
             return super().__getattribute__(item)
 
+    def __getitem__(self, item):
+        return self.config[item]
+
 
 config = ConfigLoader()

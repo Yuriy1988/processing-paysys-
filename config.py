@@ -1,5 +1,6 @@
 from datetime import timedelta
 
+
 class Debug:
     LOG_CONFIG = 'log_config.json'
 
@@ -27,6 +28,13 @@ class Debug:
 
     CLIENT_API_URL = 'http://127.0.0.1:7254/api/client/dev'
 
+    LOG_BASE_NAME = 'xop'
+    LOG_FORMAT = 'PROCESS| %(levelname)-6.6s | %(name)-15.15s | %(asctime)s | %(message)s'
+    LOG_DATE_FORMAT = '%d.%m %H:%M:%S'
+
+    LOG_ROOT_LEVEL = 'DEBUG'
+    LOG_LEVEL = 'DEBUG'
+
     AUTH_ALGORITHM='HS512'
     AUTH_KEY='PzYs2qLh}2$8uUJbBnWB800iYKe5xdYqItRNo7@38yW@tPDVAX}EV5V31*ZK78QS'
     AUTH_TOKEN_LIFE_TIME=timedelta(minutes=30)
@@ -39,12 +47,25 @@ class Production(Debug):
 
     DEBUG = False
 
+    LOG_ROOT_LEVEL = 'INFO'
+    LOG_LEVEL = 'INFO'
+
+    LOG_FILE = '/var/log/xopay/xopay.log'
+    LOG_MAX_BYTES = 10*1024*1024
+    LOG_BACKUP_COUNT = 10
+
     CLIENT_API_URL = 'https://xopay.digitaloutlooks.com/api/client/dev'
 
 
 class Testing(Debug):
+
+    LOG_ROOT_LEVEL = 'INFO'
+    LOG_LEVEL = 'INFO'
+
     RABBIT_HOST = '127.0.0.1'
     RABBIT_PORT = 5672
+
     INCOME_QUEUE_NAME = 'test_transactions_for_processing'
     OUTCOME_QUEUE_NAME = 'test_statuses'
+
     DB_NAME = "test_processing_db"
