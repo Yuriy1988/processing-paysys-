@@ -26,5 +26,7 @@ class ConfigLoader:
     def __getitem__(self, item):
         return self.config[item]
 
+    def __contains__(self, item):
+        return item in self.config
 
 config = ConfigLoader()
