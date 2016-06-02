@@ -1,39 +1,13 @@
 #!venv/bin/python
-
-import os
 import motor
+import crypt
 import signal
 import logging
-import logging.handlers
 from datetime import timedelta
 from tornado.ioloop import IOLoop
 
-import crypt
 from config import config
 from app.processing import Processing
-
-
-def logger_configure(log_config):
-
-    if 'LOG_FILE' in log_config and os.access(os.path.dirname(log_config['LOG_FILE']), os.W_OK):
-        log_handler = logging.handlers.RotatingFileHandler(
-            filename=log_config['LOG_FILE'],
-            maxBytes=log_config['LOG_MAX_BYTES'],
-            backupCount=log_config['LOG_BACKUP_COUNT'],
-            encoding='utf8',
-        )
-    else:
-        log_handler = logging.StreamHandler()
-
-    log_formatter = logging.Formatter(fmt=log_config['LOG_FORMAT'], datefmt=log_config['LOG_DATE_FORMAT'])
-    log_handler.setFormatter(log_formatter)
-
-    # root logger
-    logging.getLogger('').addHandler(log_handler)
-    logging.getLogger('').setLevel(log_config['LOG_ROOT_LEVEL'])
-
-    # local logger
-    logging.getLogger(log_config.get('LOG_BASE_NAME', '')).setLevel(log_config['LOG_LEVEL'])
 
 
 def rsa_setup():
@@ -79,9 +53,4 @@ def main():
 
 
 if __name__ == '__main__':
-
-    config.load_from_file("config", "Production")
-
-    logger_configure(config)
-
     main()

@@ -1,4 +1,8 @@
+import os
 import importlib
+import argparse
+import logging
+import logging.handlers
 from datetime import timedelta
 
 
@@ -72,7 +76,46 @@ class Testing(Debug):
     DB_NAME = "test_processing_db"
 
 
+def logger_configure(log_config):
+
+    if 'LOG_FILE' in log_config and os.access(os.path.dirname(log_config['LOG_FILE']), os.W_OK):
+        log_handler = logging.handlers.RotatingFileHandler(
+            filename=log_config['LOG_FILE'],
+            maxBytes=log_config['LOG_MAX_BYTES'],
+            backupCount=log_config['LOG_BACKUP_COUNT'],
+            encoding='utf8',
+        )
+    else:
+        log_handler = logging.StreamHandler()
+
+    log_formatter = logging.Formatter(fmt=log_config['LOG_FORMAT'], datefmt=log_config['LOG_DATE_FORMAT'])
+    log_handler.setFormatter(log_formatter)
+
+    # root logger
+    logging.getLogger('').addHandler(log_handler)
+    logging.getLogger('').setLevel(log_config['LOG_ROOT_LEVEL'])
+
+    # local logger
+    logging.getLogger(log_config.get('LOG_BASE_NAME', '')).setLevel(log_config['LOG_LEVEL'])
+
+
 class ConfigLoader(dict):
+
+    def __init__(self, *args, **kwargs):
+        super(ConfigLoader, self).__init__(*args, **kwargs)
+        self._load_config_from_args()
+
+    def _load_config_from_args(self):
+        parser = argparse.ArgumentParser(description='XOPay Processing Service.', allow_abbrev=False)
+        parser.add_argument('--debug', action='store_true', default=False, help='run in debug mode')
+
+        args = parser.parse_args()
+        if args.debug:
+            self.load_from_object(Debug)
+        else:
+            self.load_from_object(Production)
+
+        logger_configure(config)
 
     def load_from_file(self, filename, objname=None):
         m = importlib.import_module(filename)

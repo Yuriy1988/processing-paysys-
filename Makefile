@@ -67,4 +67,4 @@ deploy:
 # ----- Run Server -----
 
 runserver:
-	./run.py
+	./run.py --debug
