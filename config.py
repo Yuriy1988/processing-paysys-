@@ -115,8 +115,6 @@ class ConfigLoader(dict):
         else:
             self.load_from_object(Production)
 
-        logger_configure(config)
-
     def load_from_file(self, filename, objname=None):
         m = importlib.import_module(filename)
         if objname:
@@ -126,8 +124,8 @@ class ConfigLoader(dict):
 
     def load_from_object(self, obj):
         self.update({key: getattr(obj, key) for key in filter(
-            lambda x: not callable(getattr(obj, x)) and not x.startswith("_"), dir(obj))
-                            })
+            lambda x: not callable(getattr(obj, x)) and not x.startswith("_"), dir(obj))})
+        logger_configure(self)
 
     def __getattr__(self, item):
         if item not in dir(self):
