@@ -10,6 +10,9 @@ from config import config
 _log = logging.getLogger('xop.processing')
 
 
+TRANSACTION_STATUS_ENUM = ('SUCCESS', '3D_SECURE', 'REJECTED')
+
+
 class STATUS:
     """Statuses for transactions"""
     ACCEPTED = "ACCEPTED"
@@ -124,7 +127,7 @@ class StepProcessor:
         pass
 
     async def exception(self, error, transaction):
-        RabbitPublisher(config.OUTCOME_QUEUE_NAME).put({"id": transaction["_id"], "status": "FAIL", "error": str(error)})
+        RabbitPublisher(config.OUTCOME_QUEUE_NAME).put({"id": transaction["_id"], "status": "REJECTED", "error": str(error)})
 
 
 class _InnerStep(StepProcessor):
@@ -168,19 +171,19 @@ class _FinalStep(StepProcessor):
     async def fail(self, error, transaction):
         transaction["error"] = str(error)
         await update_transaction_status(self.db, transaction, PSM[self.step_name][STATE_ACTION.RESULT])
-        self.rabbit.put({"id": transaction["_id"], "status": "FAIL", "error": transaction.get("error")})
+        self.rabbit.put({"id": transaction["_id"], "status": "REJECTED", "error": transaction.get("error")})
 
 
 class SuccessStep(_FinalStep):
     async def success(self, transaction):
         await update_transaction_status(self.db, transaction, PSM[self.step_name][STATE_ACTION.RESULT])
-        self.rabbit.put({"id": transaction["_id"], "status": "OK"})
+        self.rabbit.put({"id": transaction["_id"], "status": "SUCCESS"})
 
 
 class FailStep(_FinalStep):
     async def success(self, transaction):
         await update_transaction_status(self.db, transaction, PSM[self.step_name][STATE_ACTION.RESULT])
-        self.rabbit.put({"id": transaction["_id"], "status": "FAIL", "error": transaction.get("error")})
+        self.rabbit.put({"id": transaction["_id"], "status": "REJECTED", "error": transaction.get("error")})
 
 
 class Processing:
