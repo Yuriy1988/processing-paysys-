@@ -1,5 +1,5 @@
+aiohttp==0.21.6
 pycrypto==2.6.1
-requests==2.9.1
-pika==0.10.0
-motor==0.6.2
 pyjwt==1.4.0
+motor==0.6.2
+pika==0.10.0

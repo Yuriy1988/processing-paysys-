@@ -42,15 +42,15 @@ class Application(dict):
 
 def create_app():
     """Create and run all processing services."""
+
+    config['RSA_KEY'] = crypt.create_rsa_key()
+
     app = Application()
     app['config'] = config
 
     motor_client = motor.motor_asyncio.AsyncIOMotorClient()
     db = motor_client[config['DB_NAME']]
     app['db'] = db
-
-    # FIXME: make rsa_setup async
-    crypt.rsa_setup()
 
     processing = Processing(db=db, loop=app.loop)
     processing.init()

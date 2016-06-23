@@ -1,15 +1,12 @@
 import os
-import json
 import base64
 import logging
-import requests
-import requests.exceptions
+import asyncio
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
 
-import auth
+import utils
 from config import config
-
 
 _log = logging.getLogger('xop.crypt')
 
@@ -25,62 +22,40 @@ def decrypt(b64_data, key):
     return cipher.decrypt(data).decode()
 
 
-def debug_generate():
-    key = RSA.generate(config['CRYPT_NBITS'])
-    config['RSA_KEY'] = key
+def _generate_rsa_key():
+    """
+    Generate RSA key depending of config settings.
+    In DEBUG mode load existing key from file.
+    :return: RSA key string
+    """
+    if config['DEBUG'] and os.path.exists(config['CRYPT_RSA_FILE_NAME']):
+        with open(config['CRYPT_RSA_FILE_NAME'], 'rb') as lf:
+            return RSA.importKey(lf.read())
 
-    with open(config['CRYPT_DEBUG_RSA_FILE_NAME'], 'wb') as f:
-        f.write(key.exportKey('PEM'))
+    key = RSA.generate(config['CRYPT_NBITS'])
+
+    with open(config['CRYPT_RSA_FILE_NAME'], 'wb') as gf:
+        if config['DEBUG']:
+            gf.write(key.exportKey('PEM'))
+        else:
+            gf.write(key.publickey().exportKey('PEM'))
 
     return key
 
 
-def debug_load_key():
-    return RSA.importKey(open(config['CRYPT_DEBUG_RSA_FILE_NAME'], 'rb').read())
-
-
-def is_debug_key_exists():
-    return os.path.exists(config['CRYPT_DEBUG_RSA_FILE_NAME'])
-
-
-def generate():
-    key = RSA.generate(config['CRYPT_NBITS'])
-    config['RSA_KEY'] = key
-
-    with open(config['CRYPT_RSA_FILE_NAME'], 'wb') as f:
-        f.write(key.publickey().exportKey('PEM'))
-
-    return key
-
-
-def update_public_key_on_client(new_key):
-
-    url = config['CLIENT_API_URL'] + '/security/public_key'
-    key_json = {"key": new_key.publickey().exportKey('PEM').decode()}
-    data = json.dumps(key_json)
-    headers = {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer %s' % auth.get_system_token()
-    }
-
-    try:
-        response = requests.post(url, data=data, headers=headers)
-        if response.status_code == 200:
-            _log.info("Client rsa key updated successfully.")
-        else:
-            _log.warning("Client rsa key hasn't updated successfully.")
-        return response
-    except requests.exceptions.ConnectionError:
-        _log.error("Client rsa key update error. Connection error.")
-
-
-def rsa_setup():
-    if config['DEBUG']:
-        if is_debug_key_exists():
-            config['RSA_KEY'] = debug_load_key()
-        else:
-            config['RSA_KEY'] = debug_generate()
+async def _update_public_key_on_client(new_key):
+    resp_body, error = await utils.http_request(
+        url=config['CLIENT_API_URL'] + '/security/public_key',
+        method='POST',
+        body={"key": new_key.publickey().exportKey('PEM').decode()}
+    )
+    if error:
+        _log.critical('Error update client RSA key: %s', error)
     else:
-        config['RSA_KEY'] = generate()
+        _log.info('Client rsa key updated successfully')
 
-    update_public_key_on_client(config['RSA_KEY'])
+
+def create_rsa_key():
+    rsa_key = _generate_rsa_key()
+    asyncio.ensure_future(_update_public_key_on_client(rsa_key))
+    return rsa_key

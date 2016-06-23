@@ -28,8 +28,7 @@ class Debug:
     OUTCOME_QUEUE_NAME = 'transactions_status'
 
     CRYPT_NBITS = 2048
-    CRYPT_RSA_FILE_NAME = 'public.pem'
-    CRYPT_DEBUG_RSA_FILE_NAME = 'debug_rsa_key.pem'
+    CRYPT_RSA_FILE_NAME = 'debug_rsa_key.pem'
 
     CLIENT_API_URL = 'http://127.0.0.1:7254/api/client/dev'
 
@@ -60,6 +59,8 @@ class Production(Debug):
     LOG_BACKUP_COUNT = 10
 
     CLIENT_API_URL = 'https://xopay.digitaloutlooks.com/api/client/dev'
+
+    CRYPT_RSA_FILE_NAME = 'public.pem'
 
 
 class Testing(Debug):
