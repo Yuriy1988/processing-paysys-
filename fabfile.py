@@ -114,7 +114,7 @@ def setup_supervisor():
     sudo('apt-get install -y supervisor')
 
     config_file = '/tmp/xopay-processing.conf'
-    create_config(config_file, 'server/xopay-processing.conf.supervisor.templ')
+    create_config(config_file, 'DEPLOY/xopay-processing.conf.supervisor.templ')
 
     put(config_file, '/etc/supervisor/conf.d/', use_sudo=True)
     local('rm {config}'.format(config=config_file))
