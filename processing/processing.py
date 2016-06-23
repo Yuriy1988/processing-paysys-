@@ -3,7 +3,7 @@ import asyncio
 from asyncio.queues import PriorityQueue
 from pymongo.errors import AutoReconnect
 
-from processing.rabbitmq_connector import RabbitAsyncConsumer, RabbitPublisher
+from queue_connect import RabbitAsyncConsumer, RabbitPublisher
 from paysys_pi import process, ProcessingException
 from config import config
 

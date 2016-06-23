@@ -9,7 +9,7 @@ from config import config
 
 from paysys_pi import ProcessingException
 from processing.processing import Processing
-from processing.rabbitmq_connector import RabbitPublisher, RabbitAsyncConsumer
+from queue_connect import RabbitPublisher, RabbitAsyncConsumer
 
 
 config.load_from_file("config", "Testing")
