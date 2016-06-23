@@ -18,14 +18,15 @@ class Debug:
     DEBUG = True
 
     # Queue:
-    RABBIT_HOST = 'xopay.digitaloutlooks.com'
-    RABBIT_PORT = 5672
-    RABBIT_USERNAME = 'xopay_rabbit'
-    RABBIT_PASSWORD = '5lf01xiOFwyMLvQrkzz7'
-    RABBIT_VIRTUAL_HOST = '/xopay'
+    QUEUE_HOST = '127.0.0.1'
+    QUEUE_PORT = 5672
+    QUEUE_USERNAME = 'xopay_rabbit'
+    QUEUE_VIRTUAL_HOST = '/xopay'
+    QUEUE_PASSWORD = '5lf01xiOFwyMLvQrkzz7'
 
-    INCOME_QUEUE_NAME = 'transactions_for_processing'
-    OUTCOME_QUEUE_NAME = 'transactions_status'
+    QUEUE_TRANS_FOR_PROCESSING = 'transactions_for_processing'
+    QUEUE_TRANS_STATUS = 'transactions_status'
+    QUEUE_3D_SECURE_RESULT = '3d_secure_result'
 
     CRYPT_NBITS = 2048
     CRYPT_RSA_FILE_NAME = 'debug_rsa_key.pem'
@@ -58,6 +59,8 @@ class Production(Debug):
     LOG_MAX_BYTES = 10*1024*1024
     LOG_BACKUP_COUNT = 10
 
+    QUEUE_HOST = 'xopay.digitaloutlooks.com'
+
     CLIENT_API_URL = 'https://xopay.digitaloutlooks.com/api/client/dev'
 
     CRYPT_RSA_FILE_NAME = 'public.pem'
@@ -67,12 +70,6 @@ class Testing(Debug):
 
     LOG_ROOT_LEVEL = 'INFO'
     LOG_LEVEL = 'INFO'
-
-    RABBIT_HOST = '127.0.0.1'
-    RABBIT_PORT = 5672
-
-    INCOME_QUEUE_NAME = 'test_transactions_for_processing'
-    OUTCOME_QUEUE_NAME = 'test_statuses'
 
     DB_NAME = "test_processing_db"
 

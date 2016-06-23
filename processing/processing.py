@@ -1,9 +1,9 @@
 import logging
 import asyncio
-from asyncio.queues import PriorityQueue
+from asyncio.queues import PriorityQueue, Queue
 from pymongo.errors import AutoReconnect
 
-from queue_connect import RabbitAsyncConsumer, RabbitPublisher
+from queue_connect import RabbitPublisher
 from paysys_pi import process, ProcessingException
 from config import config
 
@@ -81,6 +81,12 @@ PSM = {
     }
 }
 
+_transactions_incoming_queue = Queue()
+
+
+async def handle_transaction(message):
+    await _transactions_incoming_queue.put(message)
+
 
 class StepProcessor:
 
@@ -128,7 +134,7 @@ class StepProcessor:
         pass
 
     async def exception(self, error, transaction):
-        RabbitPublisher(config['OUTCOME_QUEUE_NAME']).put({"id": transaction["_id"], "status": "REJECTED", "error": str(error)})
+        RabbitPublisher(config['QUEUE_TRANS_STATUS']).put({"id": transaction["_id"], "status": "REJECTED", "error": str(error)})
 
 
 class _InnerStep(StepProcessor):
@@ -144,7 +150,7 @@ class _InnerStep(StepProcessor):
 
 class AcceptingStep(_InnerStep):
     def __init__(self, step_name, ioloop, db, succeed_queue, fault_queue, payment_interface):
-        super().__init__(RabbitAsyncConsumer(config['INCOME_QUEUE_NAME']), step_name, ioloop, db, succeed_queue, fault_queue)
+        super().__init__(_transactions_incoming_queue, step_name, ioloop, db, succeed_queue, fault_queue)
 
     async def process(self, transaction):
         transaction["_id"] = transaction.pop("id")  # change 'id' ot '_id'
@@ -167,7 +173,7 @@ class QueueStep(_InnerStep):
 class _FinalStep(StepProcessor):
     def __init__(self, step_name, ioloop, db, succeed_queue, fault_queue, payment_interface):
         super().__init__(PriorityQueue(), step_name, ioloop, db, succeed_queue, fault_queue)
-        self.rabbit = RabbitPublisher(config['OUTCOME_QUEUE_NAME'])
+        self.rabbit = RabbitPublisher(config['QUEUE_TRANS_STATUS'])
 
     async def fail(self, error, transaction):
         transaction["error"] = str(error)

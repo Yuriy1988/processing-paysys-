@@ -5,7 +5,8 @@ import motor.motor_asyncio
 
 import crypt
 from config import config
-from processing.processing import Processing
+from queue_connect import QueueListener
+from processing.processing import Processing, handle_transaction
 
 __author__ = 'Kostel Serhii'
 
@@ -52,6 +53,15 @@ def create_app():
     db = motor_client[config['DB_NAME']]
     app['db'] = db
 
+    queue_connect = QueueListener(
+        queue_handlers=[
+            (config['QUEUE_TRANS_FOR_PROCESSING'], handle_transaction),
+        ],
+        connect_parameters=config
+    )
+    queue_connect.start()
+    app['queue_connect'] = queue_connect
+
     processing = Processing(db=db, loop=app.loop)
     processing.init()
     app['processing'] = processing
@@ -65,6 +75,10 @@ async def shutdown(app):
     :param app: service application
     """
     _log.info('Stopping XOPay Processing Service...')
+
+    queue_connect = app.get('queue_connect')
+    if queue_connect:
+        await queue_connect.close()
 
     processing = app.get('processing')
     if processing:
