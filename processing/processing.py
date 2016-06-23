@@ -128,7 +128,7 @@ class StepProcessor:
         pass
 
     async def exception(self, error, transaction):
-        RabbitPublisher(config.OUTCOME_QUEUE_NAME).put({"id": transaction["_id"], "status": "REJECTED", "error": str(error)})
+        RabbitPublisher(config['OUTCOME_QUEUE_NAME']).put({"id": transaction["_id"], "status": "REJECTED", "error": str(error)})
 
 
 class _InnerStep(StepProcessor):
@@ -144,7 +144,7 @@ class _InnerStep(StepProcessor):
 
 class AcceptingStep(_InnerStep):
     def __init__(self, step_name, ioloop, db, succeed_queue, fault_queue, payment_interface):
-        super().__init__(RabbitAsyncConsumer(config.INCOME_QUEUE_NAME), step_name, ioloop, db, succeed_queue, fault_queue)
+        super().__init__(RabbitAsyncConsumer(config['INCOME_QUEUE_NAME']), step_name, ioloop, db, succeed_queue, fault_queue)
 
     async def process(self, transaction):
         transaction["_id"] = transaction.pop("id")  # change 'id' ot '_id'
@@ -167,7 +167,7 @@ class QueueStep(_InnerStep):
 class _FinalStep(StepProcessor):
     def __init__(self, step_name, ioloop, db, succeed_queue, fault_queue, payment_interface):
         super().__init__(PriorityQueue(), step_name, ioloop, db, succeed_queue, fault_queue)
-        self.rabbit = RabbitPublisher(config.OUTCOME_QUEUE_NAME)
+        self.rabbit = RabbitPublisher(config['OUTCOME_QUEUE_NAME'])
 
     async def fail(self, error, transaction):
         transaction["error"] = str(error)

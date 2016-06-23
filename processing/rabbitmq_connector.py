@@ -15,12 +15,12 @@ def _get_connection_parameters():
     Return pika connection parameters object.
     """
     return pika.ConnectionParameters(
-        host=config.RABBIT_HOST,
-        port=config.RABBIT_PORT,
-        virtual_host=config.RABBIT_VIRTUAL_HOST,
+        host=config['RABBIT_HOST'],
+        port=config['RABBIT_PORT'],
+        virtual_host=config['RABBIT_VIRTUAL_HOST'],
         credentials=pika.credentials.PlainCredentials(
-            username=config.RABBIT_USERNAME,
-            password=config.RABBIT_PASSWORD,
+            username=config['RABBIT_USERNAME'],
+            password=config['RABBIT_PASSWORD'],
         )
     )
 
@@ -115,7 +115,7 @@ class _ConsumingAsyncClient:
                               exclusive=False,
                               auto_delete=False,
                               callback=self.on_queue_declared)
-        _log.info("RabbitMQ CNS: " + config.INCOME_QUEUE_NAME + " queue declared")
+        _log.info("RabbitMQ CNS: " + config['INCOME_QUEUE_NAME'] + " queue declared")
 
     def on_queue_declared(self, frame):
         self.bind_future.set_result(True)

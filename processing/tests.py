@@ -46,12 +46,12 @@ class ProcessingTests(unittest.TestCase):
     def processing_cycle(transaction):
         loop = asyncio.get_event_loop()
 
-        db = getattr(motor.MotorClient(), config.DB_NAME)
+        db = getattr(motor.MotorClient(), config['DB_NAME'])
         processing = Processing(db=db, loop=loop)
         processing.init()
 
-        rabbit_sender = RabbitPublisher(queue_name=config.INCOME_QUEUE_NAME)
-        rabbit_receiver = RabbitAsyncConsumer(queue_name=config.OUTCOME_QUEUE_NAME)
+        rabbit_sender = RabbitPublisher(queue_name=config['INCOME_QUEUE_NAME'])
+        rabbit_receiver = RabbitAsyncConsumer(queue_name=config['OUTCOME_QUEUE_NAME'])
 
         rabbit_sender.put(transaction)
 
@@ -93,7 +93,7 @@ class ProcessingTests(unittest.TestCase):
         self.assertEqual(expected_status, actual_result.get("status"))
 
     def test_transaction_exists(self):
-        db = getattr(motor.MotorClient(), config.DB_NAME)
+        db = getattr(motor.MotorClient(), config['DB_NAME'])
         db.transactions.insert({"_id": "876"})
         self.transactio = {"id": "876"}
         expected_status = "FAIL"

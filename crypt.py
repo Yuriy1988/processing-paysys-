@@ -26,28 +26,28 @@ def decrypt(b64_data, key):
 
 
 def debug_generate():
-    key = RSA.generate(config.CRYPT_NBITS)
-    config.RSA_KEY = key
+    key = RSA.generate(config['CRYPT_NBITS'])
+    config['RSA_KEY'] = key
 
-    with open(config.CRYPT_DEBUG_RSA_FILE_NAME, 'wb') as f:
+    with open(config['CRYPT_DEBUG_RSA_FILE_NAME'], 'wb') as f:
         f.write(key.exportKey('PEM'))
 
     return key
 
 
 def debug_load_key():
-    return RSA.importKey(open(config.CRYPT_DEBUG_RSA_FILE_NAME, 'rb').read())
+    return RSA.importKey(open(config['CRYPT_DEBUG_RSA_FILE_NAME'], 'rb').read())
 
 
 def is_debug_key_exists():
-    return os.path.exists(config.CRYPT_DEBUG_RSA_FILE_NAME)
+    return os.path.exists(config['CRYPT_DEBUG_RSA_FILE_NAME'])
 
 
 def generate():
-    key = RSA.generate(config.CRYPT_NBITS)
-    config.RSA_KEY = key
+    key = RSA.generate(config['CRYPT_NBITS'])
+    config['RSA_KEY'] = key
 
-    with open(config.CRYPT_RSA_FILE_NAME, 'wb') as f:
+    with open(config['CRYPT_RSA_FILE_NAME'], 'wb') as f:
         f.write(key.publickey().exportKey('PEM'))
 
     return key
@@ -55,7 +55,7 @@ def generate():
 
 def update_public_key_on_client(new_key):
 
-    url = config.CLIENT_API_URL + '/security/public_key'
+    url = config['CLIENT_API_URL'] + '/security/public_key'
     key_json = {"key": new_key.publickey().exportKey('PEM').decode()}
     data = json.dumps(key_json)
     headers = {
@@ -75,12 +75,12 @@ def update_public_key_on_client(new_key):
 
 
 def rsa_setup():
-    if config.DEBUG:
+    if config['DEBUG']:
         if is_debug_key_exists():
-            config.RSA_KEY = debug_load_key()
+            config['RSA_KEY'] = debug_load_key()
         else:
-            config.RSA_KEY = debug_generate()
+            config['RSA_KEY'] = debug_generate()
     else:
-        config.RSA_KEY = generate()
+        config['RSA_KEY'] = generate()
 
-    update_public_key_on_client(config.RSA_KEY)
+    update_public_key_on_client(config['RSA_KEY'])

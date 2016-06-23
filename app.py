@@ -46,7 +46,7 @@ def create_app():
     app['config'] = config
 
     motor_client = motor.motor_asyncio.AsyncIOMotorClient()
-    db = motor_client[app.config['DB_NAME']]
+    db = motor_client[config['DB_NAME']]
     app['db'] = db
 
     # FIXME: make rsa_setup async
