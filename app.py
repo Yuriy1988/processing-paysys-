@@ -5,7 +5,7 @@ import motor.motor_asyncio
 
 import crypt
 from config import config
-from queue_connect import QueueListener
+from queue_connect import QueueListener, QueuePublisher
 from processing.processing import Processing, handle_transaction
 
 __author__ = 'Kostel Serhii'
@@ -36,9 +36,8 @@ class Application(dict):
         return self._loop
 
     async def shutdown(self):
-        if self.on_shutdown:
-            shut_futures = [shut_call(self) for shut_call in self.on_shutdown]
-            await asyncio.wait(shut_futures)
+        for task in self.on_shutdown:
+            await task()
 
 
 def create_app():
@@ -53,38 +52,33 @@ def create_app():
     db = motor_client[config['DB_NAME']]
     app['db'] = db
 
-    queue_connect = QueueListener(
+    queue_listener = QueueListener(
         queue_handlers=[
             (config['QUEUE_TRANS_FOR_PROCESSING'], handle_transaction),
         ],
         connect_parameters=config
     )
-    queue_connect.start()
-    app['queue_connect'] = queue_connect
+    queue_listener.start()
+    app.on_shutdown.append(queue_listener.close())
+    app['queue_listener'] = queue_listener
 
-    processing = Processing(db=db, loop=app.loop)
+    queue_publisher = QueuePublisher(connect_parameters=config)
+    queue_publisher.start()
+    app.on_shutdown.append(queue_publisher.close())
+    app['queue_publisher'] = queue_publisher
+
+    processing = Processing(db=db, output_queue=queue_publisher, loop=app.loop)
     processing.init()
+    app.on_shutdown.append(processing.stop())
     app['processing'] = processing
 
     return app
 
 
-async def shutdown(app):
-    """
-    Close connections, stop daemons and all process.
-    :param app: service application
-    """
-    _log.info('Stopping XOPay Processing Service...')
-
-    queue_connect = app.get('queue_connect')
-    if queue_connect:
-        await queue_connect.close()
-
-    processing = app.get('processing')
-    if processing:
-        await processing.stop()
-
+async def shutdown_tasks():
+    """Shutdown unfinished async tasks."""
     _log.info('Shutdown tasks')
+
     tasks = asyncio.Task.all_tasks()
     if tasks:
         for task in tasks:
@@ -94,31 +88,31 @@ async def shutdown(app):
         except Exception:
             pass
 
-    _log.info('XOPay Processing Service Stopped!')
-
 
 def run_app(app):
     """
     Run application infinite loop.
     :param app: service application
     """
+    _log.info('Starting XOPay Processing Service...')
+    if app.config['DEBUG']:
+        _log.warning('Debug mode is active!')
+
     loop = app.loop
     try:
         loop.run_forever()
     except KeyboardInterrupt:
         pass
     finally:
+        _log.info('Stopping XOPay Processing Service...')
         loop.run_until_complete(app.shutdown())
+        loop.run_until_complete(shutdown_tasks())
     loop.close()
+
+    _log.info('XOPay Processing Service Stopped!')
 
 
 if __name__ == "__main__":
 
     application = create_app()
-    application.on_shutdown.append(shutdown)
-
-    _log.info('Starting XOPay Processing Service...')
-    if application.config['DEBUG']:
-        _log.warning('Debug mode is active!')
-
     run_app(application)

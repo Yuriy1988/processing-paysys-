@@ -3,7 +3,6 @@ import asyncio
 from asyncio.queues import PriorityQueue, Queue
 from pymongo.errors import AutoReconnect
 
-from queue_connect import RabbitPublisher
 from paysys_pi import process, ProcessingException
 from config import config
 
@@ -90,13 +89,14 @@ async def handle_transaction(message):
 
 class StepProcessor:
 
-    def __init__(self, queue, step_name, ioloop, db, succeed_queue, fault_queue):
+    def __init__(self, queue, step_name, ioloop, db, succeed_queue, fault_queue, output_queue):
         self.queue = queue
         self.step_name = step_name
         self.ioloop = ioloop
         self.db = db
         self.succeed_queue = succeed_queue
         self.fault_queue = fault_queue
+        self.output_queue = output_queue
 
     async def loop(self):
         transaction = None
@@ -134,7 +134,10 @@ class StepProcessor:
         pass
 
     async def exception(self, error, transaction):
-        RabbitPublisher(config['QUEUE_TRANS_STATUS']).put({"id": transaction["_id"], "status": "REJECTED", "error": str(error)})
+        await self.output_queue.send(
+            queue_name=config['QUEUE_TRANS_STATUS'],
+            message={"id": transaction["_id"], "status": "REJECTED", "error": str(error)}
+        )
 
 
 class _InnerStep(StepProcessor):
@@ -149,8 +152,8 @@ class _InnerStep(StepProcessor):
 
 
 class AcceptingStep(_InnerStep):
-    def __init__(self, step_name, ioloop, db, succeed_queue, fault_queue, payment_interface):
-        super().__init__(_transactions_incoming_queue, step_name, ioloop, db, succeed_queue, fault_queue)
+    def __init__(self, step_name, ioloop, db, succeed_queue, fault_queue, output_queue, payment_interface):
+        super().__init__(_transactions_incoming_queue, step_name, ioloop, db, succeed_queue, fault_queue, output_queue)
 
     async def process(self, transaction):
         transaction["_id"] = transaction.pop("id")  # change 'id' ot '_id'
@@ -162,8 +165,8 @@ class AcceptingStep(_InnerStep):
 
 
 class QueueStep(_InnerStep):
-    def __init__(self, step_name, ioloop, db, succeed_queue, fault_queue, payment_interface):
-        super().__init__(PriorityQueue(), step_name, ioloop, db, succeed_queue, fault_queue)
+    def __init__(self, step_name, ioloop, db, succeed_queue, fault_queue, output_queue, payment_interface):
+        super().__init__(PriorityQueue(), step_name, ioloop, db, succeed_queue, fault_queue, output_queue)
         self.payment_interface = payment_interface
 
     async def process(self, transaction):
@@ -171,36 +174,45 @@ class QueueStep(_InnerStep):
 
 
 class _FinalStep(StepProcessor):
-    def __init__(self, step_name, ioloop, db, succeed_queue, fault_queue, payment_interface):
-        super().__init__(PriorityQueue(), step_name, ioloop, db, succeed_queue, fault_queue)
-        self.rabbit = RabbitPublisher(config['QUEUE_TRANS_STATUS'])
+    def __init__(self, step_name, ioloop, db, succeed_queue, fault_queue, output_queue, payment_interface):
+        super().__init__(PriorityQueue(), step_name, ioloop, db, succeed_queue, fault_queue, output_queue)
 
     async def fail(self, error, transaction):
         transaction["error"] = str(error)
         await update_transaction_status(self.db, transaction, PSM[self.step_name][STATE_ACTION.RESULT])
-        self.rabbit.put({"id": transaction["_id"], "status": "REJECTED", "error": transaction.get("error")})
+        await self.output_queue.send(
+            queue_name=config['QUEUE_TRANS_STATUS'],
+            message={"id": transaction["_id"], "status": "REJECTED", "error": transaction.get("error")}
+        )
 
 
 class SuccessStep(_FinalStep):
     async def success(self, transaction):
         await update_transaction_status(self.db, transaction, PSM[self.step_name][STATE_ACTION.RESULT])
-        self.rabbit.put({"id": transaction["_id"], "status": "SUCCESS"})
+        await self.output_queue.send(
+            queue_name=config['QUEUE_TRANS_STATUS'],
+            message={"id": transaction["_id"], "status": "SUCCESS"}
+        )
 
 
 class FailStep(_FinalStep):
     async def success(self, transaction):
         await update_transaction_status(self.db, transaction, PSM[self.step_name][STATE_ACTION.RESULT])
-        self.rabbit.put({"id": transaction["_id"], "status": "REJECTED", "error": transaction.get("error")})
+        await self.output_queue.send(
+            queue_name=config['QUEUE_TRANS_STATUS'],
+            message={"id": transaction["_id"], "status": "REJECTED", "error": transaction.get("error")}
+        )
 
 
 class Processing:
     """Takes care about processing flow. Flow determine by processing state machine."""
 
-    def __init__(self, db, loop=None):
+    def __init__(self, db, output_queue, loop=None):
         self.db = db
         self._loop = loop or asyncio.get_event_loop()
 
         self.handlers = {}
+        self.output_queue = output_queue
 
     def init(self):
         """Generate queues, handlers and add callbacks to ioloop"""
@@ -216,6 +228,7 @@ class Processing:
                 db=self.db,
                 succeed_queue=None,
                 fault_queue=None,
+                output_queue=self.output_queue,
                 payment_interface=self._pi_factory(status)
             )
 
@@ -227,7 +240,9 @@ class Processing:
 
     async def stop(self):
         for handler in self.handlers.values():
-            handler.close()
+            close = getattr(handler, 'close', None)
+            if close:
+                close()
 
     @staticmethod
     def _pi_factory(status):

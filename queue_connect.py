@@ -1,48 +1,13 @@
+import json
 import logging
 import aioamqp
 import asyncio
-import json
 from json.decoder import JSONDecodeError
-
-import pika
 
 from config import config
 
 
 _log = logging.getLogger('xop.queue')
-
-
-def _get_connection_parameters():
-    """
-    Return pika connection parameters object.
-    """
-    return pika.ConnectionParameters(
-        host=config['QUEUE_HOST'],
-        port=config['QUEUE_PORT'],
-        virtual_host=config['QUEUE_VIRTUAL_HOST'],
-        credentials=pika.credentials.PlainCredentials(
-            username=config['QUEUE_USERNAME'],
-            password=config['QUEUE_PASSWORD'],
-        )
-    )
-
-
-class RabbitPublisher:
-
-    def __init__(self, queue_name):
-        self.queue_name = queue_name
-
-    def put(self, element):
-        body = json.dumps(element)
-        params = _get_connection_parameters()
-        publish_properties = pika.BasicProperties(content_type='text/plain', delivery_mode=2)
-
-        with pika.BlockingConnection(params) as connection:
-            channel = connection.channel()
-            channel.queue_declare(queue=self.queue_name, durable=True, exclusive=False, auto_delete=False)
-            _log.info("RabbitMQ PUB: " + self.queue_name + " queue declared")
-            channel.basic_publish(exchange='', routing_key=self.queue_name, body=body, properties=publish_properties)
-            _log.info("RabbitMQ PUB: sent: " + body)
 
 
 class _QueueConnect(object):
@@ -210,32 +175,115 @@ class QueueListener(_QueueConnect):
         return _on_message
 
     def start(self):
+        """Add connection into loop."""
         _log.info('Start queue listener')
+        asyncio.ensure_future(self.connect())
+
+
+class QueuePublisher(_QueueConnect):
+    """
+    Async RabbitMQ publisher
+    """
+    def __init__(self, connect_parameters=None):
+        """
+        Create RabbitMQ Async Queue Publisher
+        :param dict connect_parameters: dict with keys: host, port, login, password, virtualhost
+        """
+        super().__init__(connect_parameters)
+        self._queue_channels = dict()
+        self._connection_waiter = asyncio.Event()
+
+    async def _chanel_connection(self):
+        """
+        Wait for queue connection.
+        Publisher channels will be registered lazily before message send."""
+        if not self._transport or not self._protocol:
+            raise Exception('Queue connection missing')
+
+        self._connection_waiter.set()
+
+    async def _get_channel(self, queue_name):
+        """
+        Register (if not registered) and return chanel for queue.
+        :param queue_name: name of the queue to register
+        """
+        channel = self._queue_channels.get(queue_name)
+
+        if channel is None:
+            channel = await self._protocol.channel()
+            await channel.queue_declare(queue_name=queue_name, durable=True)
+            self._queue_channels[queue_name] = channel
+
+        return channel
+
+    async def send(self, queue_name, message):
+        """
+        Send message to queue.
+        :param queue_name: name of the queue to send message
+        :param message: dict or str with information to send
+        """
+        await self._connection_waiter.wait()
+
+        body = json.dumps(message) if isinstance(message, dict) else message
+
+        _log.debug('Send message to queue [%s]: %s', queue_name, str(message))
+
+        channel = await self._get_channel(queue_name)
+        await channel.basic_publish(payload=body, routing_key=queue_name, exchange_name='')
+
+    def get_sender_for_queue(self, queue_name):
+        """
+        Fabric to create sender for queue (like partial method).
+        :param queue_name: name of the queue
+        :return: async sender with predefined queue name
+        """
+        async def queue_sender(message):
+            await self.send(queue_name, message)
+
+        return queue_sender
+
+    def start(self):
+        """Add connection into loop."""
+        _log.info('Start queue publisher')
         asyncio.ensure_future(self.connect())
 
 
 if __name__ == '__main__':
 
-    LOG_FORMAT = '%(levelname)-6.6s | PROCESS| %(name)-12.12s | %(asctime)s | %(message)s'
-    logging.basicConfig(format=LOG_FORMAT, datefmt='%Y-%m-%d %H:%M:%S', level='DEBUG')
+    LOG_FORMAT = '%(levelname)-6.6s | %(name)-12.12s | %(asctime)s | %(message)s'
+    log_handler = logging.StreamHandler()
+    log_formatter = logging.Formatter(fmt=LOG_FORMAT, datefmt='%Y-%m-%d %H:%M:%S')
+    log_handler.setFormatter(log_formatter)
+    root_logger = logging.getLogger('')
+    root_logger.addHandler(log_handler)
+    root_logger.setLevel('DEBUG')
+
+    QUEUE_NAME = 'test'
 
     async def on_message(body):
         logging.info('Get message: %r', body)
 
+    async def sender(pusher, num=5):
+        for i in range(num):
+            await pusher('Message #%d' % i)
+            await asyncio.sleep(1)
+
     loop = asyncio.get_event_loop()
 
-    queue_daemon = QueueListener(queue_handlers=[
-        ('transactions_status', on_message)], connect_parameters=config)
+    queue_listener = QueueListener(queue_handlers=[(QUEUE_NAME, on_message)], connect_parameters=config)
+    queue_listener.start()
 
-    asyncio.ensure_future(queue_daemon.connect())
+    queue_publisher = QueuePublisher(connect_parameters=config)
+    queue_publisher.start()
 
+    logging.info(' [*] Start')
     try:
-        logging.info(' [*] Start')
-        loop.run_forever()
+        loop.run_until_complete(sender(queue_publisher.get_sender_for_queue(QUEUE_NAME)))
     except KeyboardInterrupt:
         pass
     finally:
         logging.info(' [*] Stop queue daemon')
-        loop.run_until_complete(queue_daemon.close())
+        loop.run_until_complete(queue_publisher.close())
+        loop.run_until_complete(queue_listener.close())
 
         loop.close()
