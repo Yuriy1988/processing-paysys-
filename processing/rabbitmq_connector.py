@@ -1,8 +1,8 @@
 import json
 import pika
 import logging
-from pika.adapters.tornado_connection import TornadoConnection
-from tornado.concurrent import Future
+import asyncio
+from pika.adapters import SelectConnection
 
 from config import config
 
@@ -28,9 +28,9 @@ def _get_connection_parameters():
 class RabbitAsyncConsumer:
     """Wraps RabbitMQ functionality"""
 
-    def __init__(self, ioloop, queue_name):
+    def __init__(self, queue_name):
         self.consumer = _ConsumingAsyncClient(queue_name)
-        ioloop.add_callback(self._main_loop)
+        asyncio.ensure_future(self._main_loop())
 
     async def _main_loop(self):
         try:
@@ -93,15 +93,15 @@ class RabbitPublisher:
 class _ConsumingAsyncClient:
     def __init__(self, queue_name):
         self.queue_name = queue_name
-        self.bind_future = Future()
-        self.message_future = Future()
+        self.bind_future = asyncio.Future()
+        self.message_future = asyncio.Future()
         self.channel = None
         self.connection = None
 
     def connect(self):
         params = _get_connection_parameters()
         _log.info("RabbitMQ CNS: Connecting...")
-        self.connection = TornadoConnection(parameters=params, on_open_callback=self.on_connected)
+        self.connection = SelectConnection(parameters=params, on_open_callback=self.on_connected)
         _log.info("RabbitMQ CNS: Connected!")
         return self.bind_future
 
@@ -126,7 +126,7 @@ class _ConsumingAsyncClient:
 
     async def get_message(self):
         message = await self.message_future
-        self.message_future = Future()
+        self.message_future = asyncio.Future()
         _log.info("RabbitMQ CNS: New message: " + str(message))
         return message
 

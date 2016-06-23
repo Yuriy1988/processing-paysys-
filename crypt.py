@@ -72,3 +72,15 @@ def update_public_key_on_client(new_key):
         return response
     except requests.exceptions.ConnectionError:
         _log.error("Client rsa key update error. Connection error.")
+
+
+def rsa_setup():
+    if config.DEBUG:
+        if is_debug_key_exists():
+            config.RSA_KEY = debug_load_key()
+        else:
+            config.RSA_KEY = debug_generate()
+    else:
+        config.RSA_KEY = generate()
+
+    update_public_key_on_client(config.RSA_KEY)

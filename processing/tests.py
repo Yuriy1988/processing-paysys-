@@ -1,6 +1,5 @@
+import asyncio
 import motor
-import tornado.ioloop
-import tornado.testing
 import unittest
 from unittest.mock import MagicMock
 
@@ -9,8 +8,8 @@ from config import config
 # changing configs before importing Processing
 
 from paysys_pi import ProcessingException
-from app.processing import Processing
-from app.rabbitmq_connector import RabbitPublisher, RabbitAsyncConsumer
+from processing.processing import Processing
+from processing.rabbitmq_connector import RabbitPublisher, RabbitAsyncConsumer
 
 
 config.load_from_file("config", "Testing")
@@ -45,29 +44,27 @@ class ProcessingTests(unittest.TestCase):
 
     @staticmethod
     def processing_cycle(transaction):
-        io_loop = tornado.ioloop.IOLoop.current()
+        loop = asyncio.get_event_loop()
 
         db = getattr(motor.MotorClient(), config.DB_NAME)
-        processing = Processing(db=db)
-        processing.init(ioloop=io_loop)
+        processing = Processing(db=db, loop=loop)
+        processing.init()
 
         rabbit_sender = RabbitPublisher(queue_name=config.INCOME_QUEUE_NAME)
-        rabbit_receiver = RabbitAsyncConsumer(io_loop, queue_name=config.OUTCOME_QUEUE_NAME)
+        rabbit_receiver = RabbitAsyncConsumer(queue_name=config.OUTCOME_QUEUE_NAME)
 
         rabbit_sender.put(transaction)
 
-        class Result:
-            pass
-        result = Result()
-        async def callback(r):
-            r.message = await rabbit_receiver.get()
+        result = None
+        async def callback():
+            global result
+            result = await rabbit_receiver.get()
             rabbit_receiver.close_connection()
             await db.transactions.remove({"_id": transaction["id"]})
             processing.stop()
-            io_loop.stop()
-        io_loop.add_callback(callback, result)
-        io_loop.start()
-        return result.message
+
+        loop.run_until_complete(callback())
+        return result
 
     def test_ok(self):
         self.transaction = self._transaction

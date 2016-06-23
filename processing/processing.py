@@ -1,8 +1,9 @@
 import logging
+import asyncio
+from asyncio.queues import PriorityQueue
 from pymongo.errors import AutoReconnect
-from tornado.queues import PriorityQueue
 
-from app.rabbitmq_connector import RabbitAsyncConsumer, RabbitPublisher
+from processing.rabbitmq_connector import RabbitAsyncConsumer, RabbitPublisher
 from paysys_pi import process, ProcessingException
 from config import config
 
@@ -10,7 +11,7 @@ from config import config
 _log = logging.getLogger('xop.processing')
 
 
-TRANSACTION_STATUS_ENUM = ('SUCCESS', '3D_SECURE', 'REJECTED')
+TRANSACTION_STATUS_ENUM = ('3D_SECURE', 'PROCESSED', 'SUCCESS', 'REJECTED')
 
 
 class STATUS:
@@ -143,7 +144,7 @@ class _InnerStep(StepProcessor):
 
 class AcceptingStep(_InnerStep):
     def __init__(self, step_name, ioloop, db, succeed_queue, fault_queue, payment_interface):
-        super().__init__(RabbitAsyncConsumer(ioloop, config.INCOME_QUEUE_NAME), step_name, ioloop, db, succeed_queue, fault_queue)
+        super().__init__(RabbitAsyncConsumer(config.INCOME_QUEUE_NAME), step_name, ioloop, db, succeed_queue, fault_queue)
 
     async def process(self, transaction):
         transaction["_id"] = transaction.pop("id")  # change 'id' ot '_id'
@@ -189,21 +190,23 @@ class FailStep(_FinalStep):
 class Processing:
     """Takes care about processing flow. Flow determine by processing state machine."""
 
-    def __init__(self, db):
+    def __init__(self, db, loop=None):
         self.db = db
+        self._loop = loop or asyncio.get_event_loop()
+
         self.handlers = {}
 
-    def init(self, ioloop):
+    def init(self):
         """Generate queues, handlers and add callbacks to ioloop"""
-        self._generate_status_handlers(ioloop)
+        self._generate_status_handlers()
         _log.info("Processing initialized")
 
-    def _generate_status_handlers(self, ioloop):
+    def _generate_status_handlers(self):
 
         for status, state in PSM.items():
             self.handlers[status] = globals()[state[STATE_ACTION.PROCESSOR]](
                 step_name=status,
-                ioloop=ioloop,
+                ioloop=self._loop,
                 db=self.db,
                 succeed_queue=None,
                 fault_queue=None,
@@ -214,9 +217,9 @@ class Processing:
             if isinstance(handler, (AcceptingStep, QueueStep)):
                 handler.succeed_queue = self.handlers[PSM[status][STATE_ACTION.SUCCESS]].queue
                 handler.fault_queue = self.handlers[PSM[status][STATE_ACTION.FAIL]].queue
-            ioloop.add_callback(handler.loop)
+            asyncio.ensure_future(handler.loop())
 
-    def stop(self):
+    async def stop(self):
         for handler in self.handlers.values():
             handler.close()
 
