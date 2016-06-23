@@ -32,8 +32,8 @@ class Debug:
 
     CLIENT_API_URL = 'http://127.0.0.1:7254/api/client/dev'
 
-    LOG_BASE_NAME = 'xop'
-    LOG_FORMAT = 'PROCESS| %(levelname)-6.6s | %(name)-15.15s | %(asctime)s | %(message)s'
+    LOGGER_NAME = 'xop'
+    LOG_FORMAT = '%(levelname)-6.6s | PROCESS| %(name)-12.12s | %(asctime)s | %(message)s'
     LOG_DATE_FORMAT = '%d.%m %H:%M:%S'
 
     LOG_ROOT_LEVEL = 'DEBUG'
@@ -97,7 +97,7 @@ def logger_configure(log_config):
     logging.getLogger('').setLevel(log_config['LOG_ROOT_LEVEL'])
 
     # local logger
-    logging.getLogger(log_config.get('LOG_BASE_NAME', '')).setLevel(log_config['LOG_LEVEL'])
+    logging.getLogger(log_config.get('LOGGER_NAME', '')).setLevel(log_config['LOG_LEVEL'])
 
 
 class ConfigLoader(dict):
