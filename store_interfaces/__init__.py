@@ -1,7 +1,7 @@
 import logging
 
 from importlib import reload
-from store_api.base import BaseAPI
+from store_interfaces.base import BaseAPI
 
 
 def check(transaction):

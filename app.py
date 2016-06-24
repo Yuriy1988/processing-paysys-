@@ -6,7 +6,7 @@ import motor.motor_asyncio
 import crypt
 from config import config
 from queue_connect import QueueListener, QueuePublisher
-from processing.processing import Processing, handle_transaction
+from processing import Processing, handle_transaction
 
 __author__ = 'Kostel Serhii'
 

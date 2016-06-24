@@ -7,8 +7,7 @@ from config import config
 
 # changing configs before importing Processing
 
-from paysys_pi import ProcessingException
-from processing.processing import Processing
+from processing import Processing, ProcessingException
 # from queue_connect import RabbitPublisher
 
 

@@ -3,7 +3,7 @@ import asyncio
 from asyncio.queues import PriorityQueue, Queue
 from pymongo.errors import AutoReconnect
 
-from paysys_pi import process, ProcessingException
+from payment_interfaces import process
 from config import config
 
 
@@ -11,6 +11,10 @@ _log = logging.getLogger('xop.processing')
 
 
 TRANSACTION_STATUS_ENUM = ('3D_SECURE', 'PROCESSED', 'SUCCESS', 'REJECTED')
+
+
+class ProcessingException(Exception):
+    pass
 
 
 class STATUS:
