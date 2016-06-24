@@ -1,7 +1,7 @@
 from importlib import reload
 
-import store_interfaces
-from processing import ProcessingException
+from . import store_interfaces
+from .processing import ProcessingException
 
 
 def process(pi_name, method_name, transaction):

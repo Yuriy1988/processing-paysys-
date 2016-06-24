@@ -3,7 +3,7 @@ import asyncio
 from asyncio.queues import PriorityQueue, Queue
 from pymongo.errors import AutoReconnect
 
-from payment_interfaces import process
+from .payment_interfaces import process
 from config import config
 
 
