@@ -1,5 +1,6 @@
 import os
 import base64
+import json
 import logging
 import asyncio
 from Crypto.PublicKey import RSA
@@ -20,6 +21,18 @@ def decrypt(b64_data, key):
     cipher = PKCS1_OAEP.new(key)
     data = base64.b64decode(b64_data)
     return cipher.decrypt(data).decode()
+
+
+def decode_crypted_payment(crypted_payment):
+    """
+    Decrypt crypted payment information.
+    WARNING: method return TOP SECRET information.
+    DO NOT SAVE IT. Get it ONLY if necessary and DESTROY in the end.
+    :param crypted_payment: crypted payment string
+    :return: decrypted payment dict
+    """
+    decrypted_str = decrypt(crypted_payment, config['RSA_KEY'])
+    return json.loads(decrypted_str)
 
 
 def _generate_rsa_key():
@@ -44,7 +57,7 @@ def _generate_rsa_key():
 
 
 async def _update_public_key_on_client(new_key):
-    resp_body, error = await utils.http_request(
+    resp_body, error = await utils.services_request(
         url=config['CLIENT_API_URL'] + '/security/public_key',
         method='POST',
         body={"key": new_key.publickey().exportKey('PEM').decode()}

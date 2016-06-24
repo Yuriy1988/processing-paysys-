@@ -1,21 +1,4 @@
-import json
-
-import crypt
 import store_api
-from config import config
-
-
-def decode_transaction(func):
-    def decoder(transaction):
-        crypted = transaction["source"]["payment_requisites"]["crypted_payment"]
-        transaction["source"]["payment_requisites"].update(
-            json.loads(crypt.decrypt(crypted, config['RSA_KEY'])) + {"crypted_payment": crypted}
-        )
-        result = func(transaction)
-        result["source"]["payment_requisites"] = {"crypted_payment": crypted}
-        return result
-
-    return decoder
 
 
 class ProcessingException(Exception):

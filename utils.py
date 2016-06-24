@@ -1,12 +1,14 @@
+import jwt
 import json
 import logging
 import aiohttp
+from datetime import datetime
 
 from asyncio import TimeoutError
 from aiohttp.errors import ClientError
 from json.decoder import JSONDecodeError
 
-import auth
+from config import config
 
 __author__ = 'Kostel Serhii'
 
@@ -14,9 +16,31 @@ __author__ = 'Kostel Serhii'
 _log = logging.getLogger('xop.utils')
 
 
-async def http_request(url, method='GET', body=None, params=None):
+# Auth
+
+def _create_token(payload):
+    token = jwt.encode(payload, config['AUTH_KEY'], algorithm=config['AUTH_ALGORITHM'])
+    return token.decode('utf-8')
+
+
+def get_system_token():
     """
-    Create async http request to the REST API.
+    System token to communicate between internal services
+    :return: system JWT token
+    """
+    payload = dict(
+        exp=datetime.utcnow() + config['AUTH_TOKEN_LIFE_TIME'],
+        user_id=config['AUTH_SYSTEM_USER_ID'],
+        groups=['system'],
+    )
+    return _create_token(payload=payload)
+
+
+# Services HTTP Request
+
+async def services_request(url, method='GET', body=None, params=None):
+    """
+    Create async http request to the REST API XOP Services.
     Work only with json objects.
     :param url: request url
     :param method: one of: GET, PUT, POST, DELETE
@@ -27,7 +51,7 @@ async def http_request(url, method='GET', body=None, params=None):
     data = json.dumps(body)
     headers = {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer %s' % auth.get_system_token()
+        'Authorization': 'Bearer %s' % get_system_token()
     }
 
     try:
