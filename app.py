@@ -6,7 +6,7 @@ import motor.motor_asyncio
 import crypt
 from config import config
 from queue_connect import QueueListener, QueuePublisher
-from payment_processing.processing import Processing, handle_transaction
+from payment_processing import Processing
 
 __author__ = 'Kostel Serhii'
 
@@ -37,7 +37,7 @@ class Application(dict):
 
     async def shutdown(self):
         for task in self.on_shutdown:
-            await task()
+            await task
 
 
 def create_app():
@@ -52,25 +52,23 @@ def create_app():
     db = motor_client[config['DB_NAME']]
     app['db'] = db
 
+    queue_publisher = QueuePublisher(connect_parameters=config)
+    queue_publisher.start()
+    app.on_shutdown.append(queue_publisher.close())
+
+    trans_status_handler = queue_publisher.get_sender_for_queue(config['QUEUE_TRANS_STATUS'])
+
+    processing = Processing(db=db, results_handler=trans_status_handler)
+
     queue_listener = QueueListener(
         queue_handlers=[
-            (config['QUEUE_TRANS_FOR_PROCESSING'], handle_transaction),
+            (config['QUEUE_TRANS_FOR_PROCESSING'], processing.transaction_handler),
+            (config['QUEUE_3D_SECURE_RESULT'], processing.response_3d_secure_handler),
         ],
         connect_parameters=config
     )
     queue_listener.start()
     app.on_shutdown.append(queue_listener.close())
-    app['queue_listener'] = queue_listener
-
-    queue_publisher = QueuePublisher(connect_parameters=config)
-    queue_publisher.start()
-    app.on_shutdown.append(queue_publisher.close())
-    app['queue_publisher'] = queue_publisher
-
-    processing = Processing(db=db, output_queue=queue_publisher, loop=app.loop)
-    processing.init()
-    app.on_shutdown.append(processing.stop())
-    app['processing'] = processing
 
     return app
 

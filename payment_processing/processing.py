@@ -1,256 +1,130 @@
 import logging
-import asyncio
-from asyncio.queues import PriorityQueue, Queue
-from pymongo.errors import AutoReconnect
 
-from .payment_interfaces import process
-from config import config
+from .payment_interfaces import get_payment_interface
 
+__author__ = 'Kostel Serhii'
 
-_log = logging.getLogger('xop.processing')
+_log = logging.getLogger('xop.payment')
 
 
-TRANSACTION_STATUS_ENUM = ('3D_SECURE', 'PROCESSED', 'SUCCESS', 'REJECTED')
+class Processing(object):
 
-
-class ProcessingException(Exception):
-    pass
-
-
-class STATUS:
-    """Statuses for transactions"""
-    ACCEPTED = "ACCEPTED"
-
-    CAPTURE_SOURCE = "CAPTURE_SOURCE"
-    CAPTURE_DESTINATION = "CAPTURE_DESTINATION"
-    AUTH_SOURCE = "AUTH_SOURCE"
-    AUTH_DESTINATION = "AUTH_DESTINATION"
-    VOID = "VOID"
-
-    SUCCESS = "SUCCESS"
-    FAIL = "FAIL"
-
-
-class STATE_ACTION:
-    SUCCESS = "SUCCESS"
-    FAIL = "FAIL"
-    PROCESSOR = "PROCESSOR"
-    RESULT = "RESULT"
-
-async def update_transaction_status(db, transaction, new_status):
-    transaction['status'] = new_status
-    return await db.transactions.update({'_id': transaction['_id']}, transaction)
-
-
-# psm == Processing state machine
-PSM = {
-    STATUS.ACCEPTED: {
-        STATE_ACTION.SUCCESS: STATUS.AUTH_SOURCE,
-        STATE_ACTION.FAIL: STATUS.FAIL,
-        STATE_ACTION.PROCESSOR: "AcceptingStep",
-    },
-    STATUS.AUTH_SOURCE: {
-        STATE_ACTION.SUCCESS: STATUS.AUTH_DESTINATION,
-        STATE_ACTION.FAIL: STATUS.VOID,
-        STATE_ACTION.PROCESSOR: "QueueStep",
-    },
-    STATUS.AUTH_DESTINATION: {
-        STATE_ACTION.SUCCESS: STATUS.CAPTURE_SOURCE,
-        STATE_ACTION.FAIL: STATUS.VOID,
-        STATE_ACTION.PROCESSOR: "QueueStep",
-    },
-    STATUS.CAPTURE_SOURCE: {
-        STATE_ACTION.SUCCESS: STATUS.CAPTURE_DESTINATION,
-        STATE_ACTION.FAIL: STATUS.VOID,
-        STATE_ACTION.PROCESSOR: "QueueStep",
-    },
-    STATUS.CAPTURE_DESTINATION: {
-        STATE_ACTION.SUCCESS: STATUS.SUCCESS,
-        STATE_ACTION.FAIL: STATUS.VOID,
-        STATE_ACTION.PROCESSOR: "QueueStep",
-    },
-    STATUS.VOID: {
-        STATE_ACTION.SUCCESS: STATUS.FAIL,
-        STATE_ACTION.FAIL: STATUS.FAIL,
-        STATE_ACTION.PROCESSOR: "QueueStep",
-    },
-    STATUS.SUCCESS: {
-        STATE_ACTION.RESULT: STATUS.SUCCESS,
-        STATE_ACTION.PROCESSOR: "SuccessStep",
-    },
-    STATUS.FAIL: {
-        STATE_ACTION.RESULT: STATUS.FAIL,
-        STATE_ACTION.PROCESSOR: "FailStep",
-    }
-}
-
-_transactions_incoming_queue = Queue()
-
-
-async def handle_transaction(message):
-    await _transactions_incoming_queue.put(message)
-
-
-class StepProcessor:
-
-    def __init__(self, queue, step_name, ioloop, db, succeed_queue, fault_queue, output_queue):
-        self.queue = queue
-        self.step_name = step_name
-        self.ioloop = ioloop
+    def __init__(self, db, results_handler):
+        """
+        Create processing instance.
+        Save db connector and
+        async callback for processing transaction result
+        :param db: connection to the db
+        :param results_handler: async method to send transaction status result
+        """
         self.db = db
-        self.succeed_queue = succeed_queue
-        self.fault_queue = fault_queue
-        self.output_queue = output_queue
+        self.result_handler = results_handler
 
-    async def loop(self):
-        transaction = None
-        _log.info("Start main loop for " + self.step_name)
-        while True:
-            try:
-                transaction = await self.queue.get()
-                try:
-                    transaction = await self.process(transaction)
-                    await self.success(transaction)
-                    _log.info("Successfully processed: " + self.step_name)
-                except ProcessingException as ex:
-                    _log.error("Processing error: " + str(ex))
-                    await self.fail(ex, transaction)
-            except AutoReconnect as ex:
-                _log.error("Processing DB error: " + str(ex))
-                await self.exception("MongoDB (AutoReconnect): " + str(ex), transaction)
-            except Exception as ex:
-                _log.error("Processing fatal failure: " + str(ex))
-                await self.exception(ex, transaction)
-
-    def stop(self):
-        self.close()
-
-    def close(self):
-        pass
-
-    async def process(self, transaction):
+    async def db_load(self, trans_id):
+        """
+        Load transaction from db
+        :param trans_id: transaction identifier
+        :return: transaction dict
+        """
+        _log.debug('Load transaction [%s] from DB', trans_id)
+        transaction = await self.db.transaction.find_one({'id': trans_id})
+        transaction.pop('_id', None)
         return transaction
 
-    async def success(self, transaction):
-        pass
+    async def db_save(self, transaction):
+        """
+        Create or update transaction into db
+        :param transaction: transaction dict
+        """
+        _log.debug('Save transaction [%s] to DB', transaction['id'])
+        await self.db.transaction.update({'id': transaction['id']}, {'$set': transaction}, upsert=True)
 
-    async def fail(self, error, transaction):
-        pass
+    async def update(self, transaction, status, extra_info=None):
+        """
+        Update transaction status and extra info.
+        NOTE: do not update ant onter transaction information
+        :param transaction: transaction dict
+        :param status: transaction status
+        :param extra_info: transaction extra info
+        """
+        _log.info('Update transaction [%s] status to "%s" and extra info "%s"',
+                  transaction['id'], status, extra_info or '')
 
-    async def exception(self, error, transaction):
-        await self.output_queue.send(
-            queue_name=config['QUEUE_TRANS_STATUS'],
-            message={"id": transaction["_id"], "status": "REJECTED", "error": str(error)}
-        )
+        transaction['payment']['status'] = status
 
+        if extra_info:
+            trans_extra_info = transaction.get('extra_info') or {}
+            trans_extra_info.update(extra_info)
+            transaction['extra_info'] = trans_extra_info
 
-class _InnerStep(StepProcessor):
-    async def success(self, transaction):
-        await update_transaction_status(self.db, transaction, PSM[self.step_name][STATE_ACTION.SUCCESS])
-        self.succeed_queue.put(transaction)
-
-    async def fail(self, error, transaction):
-        transaction["error"] = str(error)
-        await update_transaction_status(self.db, transaction, PSM[self.step_name][STATE_ACTION.FAIL])
-        self.fault_queue.put(transaction)
-
-
-class AcceptingStep(_InnerStep):
-    def __init__(self, step_name, ioloop, db, succeed_queue, fault_queue, output_queue, payment_interface):
-        super().__init__(_transactions_incoming_queue, step_name, ioloop, db, succeed_queue, fault_queue, output_queue)
-
-    async def process(self, transaction):
-        transaction["_id"] = transaction.pop("id")  # change 'id' ot '_id'
-        await self.db.transactions.insert(transaction)
-        return transaction
-
-    def close(self):
-        self.queue.close_connection()
-
-
-class QueueStep(_InnerStep):
-    def __init__(self, step_name, ioloop, db, succeed_queue, fault_queue, output_queue, payment_interface):
-        super().__init__(PriorityQueue(), step_name, ioloop, db, succeed_queue, fault_queue, output_queue)
-        self.payment_interface = payment_interface
-
-    async def process(self, transaction):
-        return self.payment_interface(transaction)
-
-
-class _FinalStep(StepProcessor):
-    def __init__(self, step_name, ioloop, db, succeed_queue, fault_queue, output_queue, payment_interface):
-        super().__init__(PriorityQueue(), step_name, ioloop, db, succeed_queue, fault_queue, output_queue)
-
-    async def fail(self, error, transaction):
-        transaction["error"] = str(error)
-        await update_transaction_status(self.db, transaction, PSM[self.step_name][STATE_ACTION.RESULT])
-        await self.output_queue.send(
-            queue_name=config['QUEUE_TRANS_STATUS'],
-            message={"id": transaction["_id"], "status": "REJECTED", "error": transaction.get("error")}
-        )
-
-
-class SuccessStep(_FinalStep):
-    async def success(self, transaction):
-        await update_transaction_status(self.db, transaction, PSM[self.step_name][STATE_ACTION.RESULT])
-        await self.output_queue.send(
-            queue_name=config['QUEUE_TRANS_STATUS'],
-            message={"id": transaction["_id"], "status": "SUCCESS"}
-        )
-
-
-class FailStep(_FinalStep):
-    async def success(self, transaction):
-        await update_transaction_status(self.db, transaction, PSM[self.step_name][STATE_ACTION.RESULT])
-        await self.output_queue.send(
-            queue_name=config['QUEUE_TRANS_STATUS'],
-            message={"id": transaction["_id"], "status": "REJECTED", "error": transaction.get("error")}
-        )
-
-
-class Processing:
-    """Takes care about processing flow. Flow determine by processing state machine."""
-
-    def __init__(self, db, output_queue, loop=None):
-        self.db = db
-        self._loop = loop or asyncio.get_event_loop()
-
-        self.handlers = {}
-        self.output_queue = output_queue
-
-    def init(self):
-        """Generate queues, handlers and add callbacks to ioloop"""
-        self._generate_status_handlers()
-        _log.info("Processing initialized")
-
-    def _generate_status_handlers(self):
-
-        for status, state in PSM.items():
-            self.handlers[status] = globals()[state[STATE_ACTION.PROCESSOR]](
-                step_name=status,
-                ioloop=self._loop,
-                db=self.db,
-                succeed_queue=None,
-                fault_queue=None,
-                output_queue=self.output_queue,
-                payment_interface=self._pi_factory(status)
-            )
-
-        for status, handler in self.handlers.items():
-            if isinstance(handler, (AcceptingStep, QueueStep)):
-                handler.succeed_queue = self.handlers[PSM[status][STATE_ACTION.SUCCESS]].queue
-                handler.fault_queue = self.handlers[PSM[status][STATE_ACTION.FAIL]].queue
-            asyncio.ensure_future(handler.loop())
-
-    async def stop(self):
-        for handler in self.handlers.values():
-            close = getattr(handler, 'close', None)
-            if close:
-                close()
+        await self.db_save(transaction)
 
     @staticmethod
-    def _pi_factory(status):
-        def payment_method(transaction):
-            pi_name = transaction["source"]["paysys_contract"]["payment_interface"]
-            return process(pi_name, status.lower(), transaction)
-        return payment_method
+    def form_response(transaction):
+        response = {
+            'trans_id': transaction['id'],
+            'status': transaction['payment']['status']
+        }
+        extra_info = transaction.get('extra_info')
+        response.update(extra_info or {})
+        return response
+
+    async def transaction_handler(self, transaction):
+        """
+        Transaction queue handler.
+
+        Receive transaction dict from queue.
+        Get and process it by payment interface.
+        Update transaction and send response to queue.
+        Reject transaction on error.
+
+        :param transaction: transaction dict
+        """
+        trans_id = transaction.get('id', 'Unknown')
+        _log.info('Receive transaction [%s]', trans_id)
+
+        await self.db_save(transaction)
+
+        try:
+            payment_interface = get_payment_interface(transaction)
+            _log.info('Start transaction [%s] processing', trans_id)
+            status, extra_info = await payment_interface.process_transaction()
+            await self.update(transaction, status, extra_info)
+
+        except Exception as err:
+            _log.exception('Error transaction [%s] processing: %s', trans_id, str(err))
+            await self.update(transaction, 'REJECTED', {'rejected_detail': str(err)})
+
+        finally:
+            _log.info('Send transaction [%s] status "%s" to queue', trans_id, transaction['payment']['status'])
+            await self.result_handler(self.form_response(transaction))
+
+    async def response_3d_secure_handler(self, message):
+        """
+        3D secure queue handler.
+
+        Load transaction from DB.
+        If pay result = cancel -> Reject transaction.
+        If pay result = success -> Continue transaction flow.
+
+        :param message: 3D secure result dict
+        """
+        trans_id = message.get('trans_id', '')
+        transaction = await self.db_load(trans_id)
+        if not transaction:
+            _log.error('Transaction for 3D secure message [%s] not found', message)
+            return
+
+        pay_result = message.get('pay_result', '').lower()
+
+        if pay_result == 'success':
+            await self.update(transaction, 'PROCESSED', message.get('extra_info'))
+            await self.transaction_handler(transaction)
+
+        elif pay_result == 'cancel':
+            await self.update(transaction, 'REJECTED', message.get('extra_info'))
+            await self.update(transaction, 'REJECTED', {'rejected_detail': 'Cancelled by 3D secure server'})
+            await self.result_handler(self.form_response(transaction))
+
+        else:
+            _log.error('Wrong 3D secure pay result "%s"', pay_result)
