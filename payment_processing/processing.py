@@ -62,7 +62,7 @@ class Processing(object):
     @staticmethod
     def form_response(transaction):
         response = {
-            'trans_id': transaction['id'],
+            'id': transaction['id'],
             'status': transaction['payment']['status']
         }
         extra_info = transaction.get('extra_info')
