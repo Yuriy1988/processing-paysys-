@@ -31,6 +31,7 @@ class Debug:
     CRYPT_NBITS = 2048
     CRYPT_RSA_FILE_NAME = 'debug_rsa_key.pem'
 
+    ADMIN_API_URL = 'http://127.0.0.1:7128/api/admin/dev'
     CLIENT_API_URL = 'http://127.0.0.1:7254/api/client/dev'
 
     LOGGER_NAME = 'xop'
@@ -61,6 +62,7 @@ class Production(Debug):
 
     QUEUE_HOST = 'xopay.digitaloutlooks.com'
 
+    ADMIN_API_URL = 'https://xopay.digitaloutlooks.com/api/admin/dev'
     CLIENT_API_URL = 'https://xopay.digitaloutlooks.com/api/client/dev'
 
     CRYPT_RSA_FILE_NAME = 'public.pem'

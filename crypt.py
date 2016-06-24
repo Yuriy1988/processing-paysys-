@@ -57,10 +57,11 @@ def _generate_rsa_key():
 
 
 async def _update_public_key_on_client(new_key):
-    resp_body, error = await utils.services_request(
+    resp_body, error = await utils.http_request(
         url=config['CLIENT_API_URL'] + '/security/public_key',
         method='POST',
-        body={"key": new_key.publickey().exportKey('PEM').decode()}
+        body={"key": new_key.publickey().exportKey('PEM').decode()},
+        auth_token='system'
     )
     if error:
         _log.critical('Error update client RSA key: %s', error)

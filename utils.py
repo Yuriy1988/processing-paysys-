@@ -38,7 +38,7 @@ def get_system_token():
 
 # Services HTTP Request
 
-async def services_request(url, method='GET', body=None, params=None):
+async def http_request(url, method='GET', body=None, params=None, headers=None, auth_token=None, auth=None):
     """
     Create async http request to the REST API XOP Services.
     Work only with json objects.
@@ -46,18 +46,35 @@ async def services_request(url, method='GET', body=None, params=None):
     :param method: one of: GET, PUT, POST, DELETE
     :param body: dict with request body for PUT or POST
     :param params: dict with request url arguments
+    :param headers: dict with headers
+    :param auth_token: string with token or None (not auth)
+    :param auth: dict with auth login and password
     :return: tuple (response body dict, error message)
     """
-    data = json.dumps(body)
-    headers = {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer %s' % get_system_token()
-    }
+    headers = headers or {}
+
+    if auth_token is not None:
+        if auth_token == 'system':
+            auth_token = get_system_token()
+        headers['Authorization'] = 'Bearer %s' % auth_token
+
+    if auth is not None:
+        auth = aiohttp.BasicAuth(**auth)
+
+    if isinstance(body, dict):
+        body = json.dumps(body)
+        headers['Content-Type'] = 'application/json'
 
     try:
         with aiohttp.ClientSession() as session:
             with aiohttp.Timeout(10):
-                async with session.request(method, url, data=data, params=params, headers=headers) as response:
+                async with session.request(
+                        method,
+                        url,
+                        data=body,
+                        params=params,
+                        headers=headers,
+                        auth=auth) as response:
                     rest_status = response.status
                     resp_body = await response.json()
 
