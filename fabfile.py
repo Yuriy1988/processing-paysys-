@@ -12,9 +12,8 @@ hosts = dict(
 )
 
 path_to_deploy = [
-    'app',
-    'paysys_pi',
-    'store_api',
+    'payment_processing',
+    'store_interfaces',
     '*.py',
     'requirements.txt',
     'Makefile',
@@ -24,7 +23,7 @@ path_to_deploy = [
 path_to_exclude = [
     '*.pyc',
     '__pycache__',
-    '*/test*',
+    'tests',
     'fabfile.py'
 ]
 
