@@ -1,10 +1,11 @@
 #!venv/bin/python
+import argparse
 import logging
 import asyncio
 import motor.motor_asyncio
 
 import crypt
-from config import config
+from config import config, logger_configure
 from queue_connect import QueueListener, QueuePublisher
 from payment_processing import Processing
 
@@ -40,12 +41,15 @@ class Application(dict):
             await task
 
 
-def create_app():
-    """Create and run all processing services."""
+def create_app(loop=None):
+    """
+    Create server application and all necessary services.
+    :param loop: async main loop
+    """
 
     config['RSA_KEY'] = crypt.create_rsa_key()
 
-    app = Application()
+    app = Application(loop=loop)
     app['config'] = config
 
     motor_client = motor.motor_asyncio.AsyncIOMotorClient()
@@ -111,6 +115,14 @@ def run_app(app):
 
 
 if __name__ == "__main__":
+
+    parser = argparse.ArgumentParser(description='XOPay Processing Service.', allow_abbrev=False)
+    parser.add_argument('--config', default='debug', help='load config: [debug, test, production] (default "debug")')
+
+    args = parser.parse_args()
+    config.load_config(args.config)
+
+    logger_configure(config)
 
     application = create_app()
     run_app(application)

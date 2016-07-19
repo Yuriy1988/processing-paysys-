@@ -1,12 +1,10 @@
 import os
-import importlib
-import argparse
 import logging
 import logging.handlers
 from datetime import timedelta
 
 
-class Debug:
+class debug:
     LOG_CONFIG = 'log_config.json'
 
     RSA_KEY = None
@@ -49,7 +47,15 @@ class Debug:
     WAIT_BEFORE_SHUTDOWN_SEC = 3
 
 
-class Production(Debug):
+class test(debug):
+
+    LOG_ROOT_LEVEL = 'INFO'
+    LOG_LEVEL = 'INFO'
+
+    DB_NAME = "test_processing_db"
+
+
+class production(debug):
 
     DEBUG = False
 
@@ -66,14 +72,6 @@ class Production(Debug):
     CLIENT_API_URL = 'https://xopay.digitaloutlooks.com/api/client/dev'
 
     CRYPT_RSA_FILE_NAME = 'public.pem'
-
-
-class Testing(Debug):
-
-    LOG_ROOT_LEVEL = 'INFO'
-    LOG_LEVEL = 'INFO'
-
-    DB_NAME = "test_processing_db"
 
 
 def logger_configure(log_config):
@@ -99,39 +97,24 @@ def logger_configure(log_config):
     logging.getLogger(log_config.get('LOGGER_NAME', '')).setLevel(log_config['LOG_LEVEL'])
 
 
-class ConfigLoader(dict):
+class _ConfigLoader(dict):
+    """ Load config with config_name."""
 
-    def __init__(self, *args, **kwargs):
-        super(ConfigLoader, self).__init__(*args, **kwargs)
-        self._load_config_from_args()
+    def __init__(self):
+        super().__init__()
 
-    def _load_config_from_args(self):
-        parser = argparse.ArgumentParser(description='XOPay Processing Service.', allow_abbrev=False)
-        parser.add_argument('--debug', action='store_true', default=False, help='run in debug mode')
+    def load_config(self, config_name='debug'):
+        """
+        :param config_name: one of the class names in current module
+        """
+        xop_config_obj = globals()[config_name]
+        if not xop_config_obj:
+            return
 
-        args = parser.parse_args()
-        if args.debug:
-            self.load_from_object(Debug)
-        else:
-            self.load_from_object(Production)
-
-    def load_from_file(self, filename, objname=None):
-        m = importlib.import_module(filename)
-        if objname:
-            self.load_from_object(getattr(m, objname))
-        else:
-            self.load_from_object(m)
-
-    def load_from_object(self, obj):
-        self.update({key: getattr(obj, key) for key in filter(
-            lambda x: not callable(getattr(obj, x)) and not x.startswith("_"), dir(obj))})
-        logger_configure(self)
-
-    def __getattr__(self, item):
-        if item not in dir(self):
-            return self.get(item)
-        else:
-            return super().__getattribute__(item)
+        config_instance = xop_config_obj()
+        for key in dir(config_instance):
+            if key.isupper():
+                self[key] = getattr(config_instance, key)
 
 
-config = ConfigLoader()
+config = _ConfigLoader()

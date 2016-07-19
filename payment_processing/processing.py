@@ -61,6 +61,12 @@ class Processing(object):
 
     @staticmethod
     def form_response(transaction):
+        """
+        Create response from transaction object.
+
+        :param transaction: transaction dict
+        :return: status response dict
+        """
         response = {
             'id': transaction['id'],
             'status': transaction['payment']['status']
