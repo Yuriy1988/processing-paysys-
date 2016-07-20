@@ -103,7 +103,8 @@ class _QueueConnect(object):
     async def clean(self):
         """Delete all registered channels queue."""
         delete_queues = [channel.queue_delete(queue_name) for queue_name, channel in self._queue_channels.items()]
-        await asyncio.wait(delete_queues)
+        if delete_queues:
+            await asyncio.wait(delete_queues)
 
     async def _get_or_declare_channel(self, queue_name):
         """
