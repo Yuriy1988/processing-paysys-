@@ -3,17 +3,14 @@ import logging
 import logging.handlers
 from datetime import timedelta
 
+import crypt
+
 
 class debug:
-    LOG_CONFIG = 'log_config.json'
-
-    RSA_KEY = None
-
-    CURRENCY_LIST = ['EUR', 'USD', 'UAH', 'RUR']
-
-    DB_NAME = "processing_db"
 
     DEBUG = True
+
+    DB_NAME = "processing_db"
 
     # Queue:
     QUEUE_HOST = '127.0.0.1'
@@ -25,9 +22,6 @@ class debug:
     QUEUE_TRANS_FOR_PROCESSING = 'transactions_for_processing'
     QUEUE_TRANS_STATUS = 'transactions_status'
     QUEUE_3D_SECURE_RESULT = '3d_secure_result'
-
-    CRYPT_NBITS = 2048
-    CRYPT_RSA_FILE_NAME = 'debug_rsa_key.pem'
 
     ADMIN_API_URL = 'http://127.0.0.1:7128/api/admin/dev'
     CLIENT_API_URL = 'http://127.0.0.1:7254/api/client/dev'
@@ -44,7 +38,12 @@ class debug:
     AUTH_TOKEN_LIFE_TIME=timedelta(minutes=30)
     AUTH_SYSTEM_USER_ID='xopay.processing'
 
-    WAIT_BEFORE_SHUTDOWN_SEC = 3
+    @property
+    def RSA_KEY(self):
+        return crypt.create_rsa_key()
+
+    CRYPT_NBITS = 2048
+    CRYPT_RSA_FILE_NAME = 'debug_rsa_key.pem'
 
 
 class test(debug):

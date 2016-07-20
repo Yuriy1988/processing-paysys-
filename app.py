@@ -4,7 +4,6 @@ import logging
 import asyncio
 import motor.motor_asyncio
 
-import crypt
 from config import config, logger_configure
 from queue_connect import QueueListener, QueuePublisher
 from payment_processing import Processing
@@ -41,13 +40,15 @@ class Application(dict):
             await task
 
 
-def create_app(loop=None):
+def create_app(config_name='debug', loop=None):
     """
     Create server application and all necessary services.
+    :param config_name: name of the config file (debug, test, production)
     :param loop: async main loop
     """
+    config.load_config(config_name)
 
-    config['RSA_KEY'] = crypt.create_rsa_key()
+    logger_configure(config)
 
     app = Application(loop=loop)
     app['config'] = config
@@ -56,13 +57,18 @@ def create_app(loop=None):
     db = motor_client[config['DB_NAME']]
     app['db'] = db
 
-    queue_publisher = QueuePublisher(connect_parameters=config)
+    queue_publisher = QueuePublisher(
+        connect_parameters=config
+    )
     queue_publisher.start()
     app.on_shutdown.append(queue_publisher.close())
 
     trans_status_handler = queue_publisher.get_sender_for_queue(config['QUEUE_TRANS_STATUS'])
 
-    processing = Processing(db=db, results_handler=trans_status_handler)
+    processing = Processing(
+        db=db,
+        results_handler=trans_status_handler
+    )
 
     queue_listener = QueueListener(
         queue_handlers=[
@@ -120,9 +126,6 @@ if __name__ == "__main__":
     parser.add_argument('--config', default='debug', help='load config: [debug, test, production] (default "debug")')
 
     args = parser.parse_args()
-    config.load_config(args.config)
 
-    logger_configure(config)
-
-    application = create_app()
+    application = create_app(config_name=args.config)
     run_app(application)
