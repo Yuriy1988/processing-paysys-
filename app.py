@@ -50,7 +50,7 @@ def create_app(config_name='debug', loop=None):
     config.load_config(config_name)
     logger_configure(config)
 
-    crypt.create_rsa_key()
+    crypt.create_rsa_key(config)
 
     app = Application(loop=loop)
     app['config'] = config

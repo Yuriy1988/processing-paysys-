@@ -73,8 +73,11 @@ async def _update_public_key_on_client(new_key):
 
 # FIXME: prevent depend on the global variable
 
-def create_rsa_key():
+def create_rsa_key(config):
     rsa_key = _generate_rsa_key()
-    asyncio.ensure_future(_update_public_key_on_client(rsa_key))
+
+    if config['UPDATE_RSA_KEY']:
+        asyncio.ensure_future(_update_public_key_on_client(rsa_key))
+
     global _rsa_key
     _rsa_key = rsa_key

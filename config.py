@@ -7,6 +7,7 @@ from datetime import timedelta
 class debug:
 
     DEBUG = True
+    UPDATE_RSA_KEY = True
 
     DB_NAME = "processing_db"
 
@@ -43,6 +44,7 @@ class debug:
 class test(debug):
 
     DEBUG = True
+    UPDATE_RSA_KEY = False
 
     LOG_ROOT_LEVEL = 'INFO'
     LOG_LEVEL = 'INFO'
@@ -55,6 +57,7 @@ class test(debug):
 class production(debug):
 
     DEBUG = False
+    UPDATE_RSA_KEY = True
 
     LOG_ROOT_LEVEL = 'INFO'
     LOG_LEVEL = 'INFO'
