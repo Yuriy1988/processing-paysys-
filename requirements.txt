@@ -3,3 +3,4 @@ aioamqp==0.7.0
 pycrypto==2.6.1
 pyjwt==1.4.0
 motor==0.6.2
+asynctest
