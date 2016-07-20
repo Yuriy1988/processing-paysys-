@@ -1,4 +1,4 @@
-aiohttp==0.21.6
+aiohttp==0.22.1
 aioamqp==0.7.0
 pycrypto==2.6.1
 pyjwt==1.4.0
