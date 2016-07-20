@@ -35,6 +35,8 @@ class _QueueConnect(object):
         """
         self._connect_params = connect_parameters
 
+        self._queue_channels = dict()
+
         self._waiter = asyncio.Event()
         self._transport = None
         self._protocol = None
@@ -98,6 +100,25 @@ class _QueueConnect(object):
         if self._transport:
             self._transport.close()
 
+    async def clean(self):
+        """Delete all registered channels queue."""
+        delete_queues = [channel.queue_delete(queue_name) for queue_name, channel in self._queue_channels.items()]
+        await asyncio.wait(delete_queues)
+
+    async def _get_or_declare_channel(self, queue_name):
+        """
+        Get or declare (if not registered) and return chanel for queue.
+        :param queue_name: name of the queue to register
+        """
+        channel = self._queue_channels.get(queue_name)
+
+        if channel is None:
+            channel = await self._protocol.channel()
+            await channel.queue_declare(queue_name=queue_name, durable=True)
+            self._queue_channels[queue_name] = channel
+
+        return channel
+
     async def _chanel_connection(self):
         """
         Async chanel connection method.
@@ -142,8 +163,7 @@ class QueueListener(_QueueConnect):
         for queue_name, on_msg_callback in self._queue_handlers:
             callback = self._wrap_on_msg_callback_with_ack(on_msg_callback)
 
-            channel = await self._protocol.channel()
-            await channel.queue_declare(queue_name=queue_name, durable=True)
+            channel = await self._get_or_declare_channel(queue_name=queue_name)
             await channel.basic_consume(callback, queue_name=queue_name)
 
     @staticmethod
@@ -190,7 +210,6 @@ class QueuePublisher(_QueueConnect):
         :param dict connect_parameters: dict with keys: host, port, login, password, virtualhost
         """
         super().__init__(connect_parameters)
-        self._queue_channels = dict()
         self._connection_waiter = asyncio.Event()
 
     async def _chanel_connection(self):
@@ -201,20 +220,6 @@ class QueuePublisher(_QueueConnect):
             raise Exception('Queue connection missing')
 
         self._connection_waiter.set()
-
-    async def _get_channel(self, queue_name):
-        """
-        Register (if not registered) and return chanel for queue.
-        :param queue_name: name of the queue to register
-        """
-        channel = self._queue_channels.get(queue_name)
-
-        if channel is None:
-            channel = await self._protocol.channel()
-            await channel.queue_declare(queue_name=queue_name, durable=True)
-            self._queue_channels[queue_name] = channel
-
-        return channel
 
     async def send(self, queue_name, message):
         """
@@ -228,7 +233,7 @@ class QueuePublisher(_QueueConnect):
 
         _log.debug('Send message to queue [%s]: %s', queue_name, str(message))
 
-        channel = await self._get_channel(queue_name)
+        channel = await self._get_or_declare_channel(queue_name)
         await channel.basic_publish(payload=body, routing_key=queue_name, exchange_name='')
 
     def get_sender_for_queue(self, queue_name):
