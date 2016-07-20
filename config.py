@@ -3,8 +3,6 @@ import logging
 import logging.handlers
 from datetime import timedelta
 
-import crypt
-
 
 class debug:
 
@@ -38,20 +36,20 @@ class debug:
     AUTH_TOKEN_LIFE_TIME=timedelta(minutes=30)
     AUTH_SYSTEM_USER_ID='xopay.processing'
 
-    @property
-    def RSA_KEY(self):
-        return crypt.create_rsa_key()
-
     CRYPT_NBITS = 2048
     CRYPT_RSA_FILE_NAME = 'debug_rsa_key.pem'
 
 
 class test(debug):
 
+    DEBUG = True
+
     LOG_ROOT_LEVEL = 'INFO'
     LOG_LEVEL = 'INFO'
 
     DB_NAME = "test_processing_db"
+
+    QUEUE_VIRTUAL_HOST = '/xopay_test'
 
 
 class production(debug):

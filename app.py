@@ -4,6 +4,7 @@ import logging
 import asyncio
 import motor.motor_asyncio
 
+import crypt
 from config import config, logger_configure
 from queue_connect import QueueListener, QueuePublisher
 from payment_processing import Processing
@@ -47,8 +48,9 @@ def create_app(config_name='debug', loop=None):
     :param loop: async main loop
     """
     config.load_config(config_name)
-
     logger_configure(config)
+
+    crypt.create_rsa_key()
 
     app = Application(loop=loop)
     app['config'] = config
@@ -60,8 +62,9 @@ def create_app(config_name='debug', loop=None):
     queue_publisher = QueuePublisher(
         connect_parameters=config
     )
-    queue_publisher.start()
+    app['queue_publisher'] = queue_publisher
     app.on_shutdown.append(queue_publisher.close())
+    queue_publisher.start()
 
     trans_status_handler = queue_publisher.get_sender_for_queue(config['QUEUE_TRANS_STATUS'])
 
@@ -69,6 +72,7 @@ def create_app(config_name='debug', loop=None):
         db=db,
         results_handler=trans_status_handler
     )
+    app['processing'] = processing
 
     queue_listener = QueueListener(
         queue_handlers=[
@@ -77,8 +81,9 @@ def create_app(config_name='debug', loop=None):
         ],
         connect_parameters=config
     )
-    queue_listener.start()
+    app['queue_listener'] = queue_listener
     app.on_shutdown.append(queue_listener.close())
+    queue_listener.start()
 
     return app
 

@@ -11,6 +11,8 @@ from config import config
 
 _log = logging.getLogger('xop.crypt')
 
+_rsa_key = None
+
 
 def encrypt(data, key):
     cipher = PKCS1_OAEP.new(key)
@@ -31,7 +33,7 @@ def decode_crypted_payment(crypted_payment):
     :param crypted_payment: crypted payment string
     :return: decrypted payment dict
     """
-    decrypted_str = decrypt(crypted_payment, config['RSA_KEY'])
+    decrypted_str = decrypt(crypted_payment, _rsa_key)
     return json.loads(decrypted_str)
 
 
@@ -69,7 +71,10 @@ async def _update_public_key_on_client(new_key):
         _log.info('Client rsa key updated successfully')
 
 
+# FIXME: prevent depend on the global variable
+
 def create_rsa_key():
     rsa_key = _generate_rsa_key()
     asyncio.ensure_future(_update_public_key_on_client(rsa_key))
-    return rsa_key
+    global _rsa_key
+    _rsa_key = rsa_key
