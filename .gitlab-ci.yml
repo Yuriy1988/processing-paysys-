@@ -1,5 +1,16 @@
 stages:
+  - test
   - deploy_demo
+
+test_task:
+  stage: test
+  script:
+    - make test
+  only:
+    - master
+  cache:
+    paths:
+      - venv/
 
 deploy_demo_task:
   stage: deploy_demo

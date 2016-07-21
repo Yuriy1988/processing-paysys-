@@ -1,3 +1,4 @@
+#!venv/bin/python
 import os
 import unittest
 import asynctest.case
@@ -33,8 +34,7 @@ class BaseTestCase(asynctest.case.TestCase):
 
 
 def run_tests():
-    tests_path = os.path.dirname(os.path.realpath(__file__))
-    print(tests_path)
+    tests_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'tests')
     suite = unittest.TestLoader().discover(tests_path, pattern='*.py')
     return unittest.TextTestRunner(verbosity=2).run(suite)
 

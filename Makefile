@@ -35,7 +35,6 @@ queue_create:
 queue_remove:
 	sudo rabbitmqctl delete_user $(QUEUE_USERNAME)
 	sudo rabbitmqctl delete_vhost $(QUEUE_VIRTUAL_HOST)
-	activate && pip install -r requirements.txt"
 
 
 # ----- Virtualenv -----
@@ -55,6 +54,12 @@ setup: install venv_init queue_create
 update: venv_init
 
 
+# ----- Test -----
+
+test: venv_init
+	./testing.py
+
+
 # ----- Demo Server -----
 
 setup_demo:
@@ -67,4 +72,4 @@ deploy:
 # ----- Run Server -----
 
 runserver:
-	./run.py --debug
+	./app.py --config=debug

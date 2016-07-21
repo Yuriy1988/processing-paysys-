@@ -46,8 +46,8 @@ class test(debug):
     DEBUG = True
     UPDATE_RSA_KEY = False
 
-    LOG_ROOT_LEVEL = 'INFO'
-    LOG_LEVEL = 'INFO'
+    LOG_ROOT_LEVEL = 'WARNING'
+    LOG_LEVEL = 'WARNING'
 
     DB_NAME = "test_processing_db"
 
