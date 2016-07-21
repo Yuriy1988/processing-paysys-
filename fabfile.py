@@ -17,7 +17,6 @@ path_to_deploy = [
     '*.py',
     'requirements.txt',
     'Makefile',
-    'log_config.json'
 ]
 
 path_to_exclude = [
