@@ -6,6 +6,8 @@ from datetime import timedelta
 
 class debug:
 
+    BASE_FOLDER = os.path.abspath(os.path.dirname(__file__))
+
     DEBUG = True
     UPDATE_RSA_KEY = True
 

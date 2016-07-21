@@ -43,13 +43,15 @@ def _generate_rsa_key():
     In DEBUG mode load existing key from file.
     :return: RSA key string
     """
-    if config['DEBUG'] and os.path.exists(config['CRYPT_RSA_FILE_NAME']):
-        with open(config['CRYPT_RSA_FILE_NAME'], 'rb') as lf:
+    crypt_file = os.path.join(config['BASE_FOLDER'], config['CRYPT_RSA_FILE_NAME'])
+
+    if config['DEBUG'] and os.path.exists(crypt_file):
+        with open(crypt_file, 'rb') as lf:
             return RSA.importKey(lf.read())
 
     key = RSA.generate(config['CRYPT_NBITS'])
 
-    with open(config['CRYPT_RSA_FILE_NAME'], 'wb') as gf:
+    with open(crypt_file, 'wb') as gf:
         if config['DEBUG']:
             gf.write(key.exportKey('PEM'))
         else:
