@@ -87,7 +87,7 @@ async def http_request(url, method='GET', body=None, params=None, headers=None, 
         _log.critical(err_msg)
         return None, err_msg
 
-    if rest_status != 200:
+    if rest_status >= 400:
         err_msg = 'HTTP wrong status %d. Error detail: %r' % (rest_status, resp_body)
         _log.error(err_msg)
         return None, err_msg

@@ -30,11 +30,13 @@ class PaymentInterface(object):
     # TODO: complete store interfaces
 
     async def auth_source(self):
-        if not store_interfaces.check(self.transaction):
-            raise PaymentInterfaceError("Store checking failed.")
+        pass
+        # if not store_interfaces.check(self.transaction):
+        #     raise PaymentInterfaceError("Store checking failed.")
 
     async def capture_source(self):
-        store_interfaces.withdraw(self.transaction)
+        pass
+        # store_interfaces.withdraw(self.transaction)
 
 
 class PayPal(PaymentInterface):
@@ -76,7 +78,7 @@ class PayPal(PaymentInterface):
         resp_body, error = await utils.http_request(
             url='https://api.sandbox.paypal.com/v1/oauth2/token?grant_type=client_credentials',
             method='POST',
-            headers={'Accept': 'application/json'},
+            headers={'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded'},
             auth={'login': login, 'password': password},
             body='grant_type=client_credentials'
         )
