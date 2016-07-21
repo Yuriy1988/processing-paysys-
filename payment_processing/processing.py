@@ -92,8 +92,11 @@ class Processing(object):
         await self.db_save(transaction)
 
         try:
-            payment_interface = get_payment_interface(transaction)
+            payment_interface_class = get_payment_interface(transaction['payment']['paysys_id'])
+            payment_interface = payment_interface_class(transaction)
+
             _log.info('Start transaction [%s] processing', trans_id)
+
             status, extra_info = await payment_interface.process_transaction()
             await self.update(transaction, status, extra_info)
 

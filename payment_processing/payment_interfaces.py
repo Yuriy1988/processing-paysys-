@@ -210,16 +210,15 @@ paysys_interface_mapper = {
 }
 
 
-def get_payment_interface(transaction):
+def get_payment_interface(paysys_id):
     """
     Return payment interface for current transaction
-    :param transaction: transaction dict
+    :param paysys_id: payment system id (paysys_interface_mapper keys)
     :return: payment interface class instance
     """
-    paysys_id = transaction['payment']['paysys_id']
     payment_interface = paysys_interface_mapper.get(paysys_id)
 
     if payment_interface is None:
         raise PaymentInterfaceError('Payment interface "%s" not found' % paysys_id)
 
-    return payment_interface(transaction)
+    return payment_interface
