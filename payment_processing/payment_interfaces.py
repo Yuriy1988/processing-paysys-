@@ -168,7 +168,7 @@ class PayPal(PaymentInterface):
             await self.capture_source()
 
             self.log.info('Execute PayPal payment for transaction [%s] (Step 6 of 7)', trans_id)
-            token = self.transaction['extra_info']['token']
+            token = await self._get_auth_token()
             payment_id = self.transaction['extra_info']['paymentId']
             payer_id = self.transaction['extra_info']['PayerID']
             await self._execute_payment(token, payment_id, payer_id)
