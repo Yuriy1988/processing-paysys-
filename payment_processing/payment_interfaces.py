@@ -1,9 +1,11 @@
 import logging
+
+import hashlib
 from copy import deepcopy
 
 import utils
-import store_interfaces
 from config import config
+from crypt import decode_crypted_payment
 
 __author__ = 'Kostel Serhii'
 
@@ -17,8 +19,9 @@ class PaymentInterface(object):
 
     TRANSACTION_STATUS_ENUM = ('CREATED', 'ACCEPTED', '3D_SECURE', 'PROCESSED', 'SUCCESS', 'REJECTED')
 
-    def __init__(self, transaction):
+    def __init__(self, transaction, db=None):
         self.transaction = deepcopy(transaction)
+        self.db = db
 
     async def process_transaction(self):
         """
@@ -202,6 +205,24 @@ class VisaMaster(PaymentInterface):
         pass
 
     async def process_transaction(self):
+
+        # --- ANTIFRAUD pre-processing ---
+        payment_info = decode_crypted_payment(self.transaction["source"]["payment_requisites"]["crypted_payment"])
+        pay_acc_hash = hashlib.sha256(payment_info("card_number").encode()).hexdigest()
+
+        if self.db.blacklist.find_one({"pay_acc": pay_acc_hash}):
+            return 'REJECTED', {'rejected_detail': 'Found in blacklist.'}
+
+        del payment_info, pay_acc_hash  # clean up sensitive data
+
+        # Decide 3D secure or not depends on the score
+        THRESHOLD = 0
+        if self.transaction["extra_info"]["antifraud_score"] > THRESHOLD:
+            return '3D_SECURE', {'redirect_url': 'Some url'}  # TODO real URL for 3d_secure
+        # --- END ANTIFRAUD ---
+
+        pass
+
         return 'REJECTED', {'rejected_detail': 'Not Implemented'}
 
 

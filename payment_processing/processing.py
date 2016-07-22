@@ -93,7 +93,7 @@ class Processing(object):
 
         try:
             payment_interface_class = get_payment_interface(transaction['payment']['paysys_id'])
-            payment_interface = payment_interface_class(transaction)
+            payment_interface = payment_interface_class(transaction, self.db)
 
             _log.info('Start transaction [%s] processing', trans_id)
 
