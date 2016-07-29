@@ -216,8 +216,8 @@ class VisaMaster(PaymentInterface):
         del payment_info, pay_acc_hash  # clean up sensitive data
 
         # Decide 3D secure or not depends on the score
-        THRESHOLD = 0
-        if self.transaction["extra_info"]["antifraud_score"] > THRESHOLD:
+        if self.transaction["extra_info"]["antifraud_score"] > \
+                float(self.transaction["extra_info"]["antifraud_settings"]["three_d_secure_threshold"]):
             return '3D_SECURE', {'redirect_url': 'Some url'}  # TODO real URL for 3d_secure
         # --- END ANTIFRAUD ---
 
