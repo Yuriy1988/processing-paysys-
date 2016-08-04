@@ -47,42 +47,20 @@ class PayPal(PaymentInterface):
     PayPal Payment Interface.
     Link: https://developer.paypal.com/docs/integration/web/accept-paypal-payment/
     """
-    debug_login = "AQkquBDf1zctJOWGKWUEtKXm6qVhueUEMvXO_-MCI4DQQ4-LWvkDLIN2fGsd"
-    debug_password = "EL1tVxAjhT7cJimnz5-Nsx9k2reTKSVfErNQF-CmrwJgxRtylkGTKlU4RvrX"
+    # FIXME: replace with real login and password (now it's for debug)
+    LOGIN = "AQkquBDf1zctJOWGKWUEtKXm6qVhueUEMvXO_-MCI4DQQ4-LWvkDLIN2fGsd"
+    PASSWORD = "EL1tVxAjhT7cJimnz5-Nsx9k2reTKSVfErNQF-CmrwJgxRtylkGTKlU4RvrX"
 
     log = logging.getLogger('xop.pay_pal')
 
-    async def _get_pasys_account(self):
-        """
-        Get from Admin Service paysys login and password
-        :return: tuple(login, password)
-        """
-        if config['DEBUG']:
-            return self.debug_login, self.debug_password
-
-        resp_body, error = await utils.http_request(
-            url=config['ADMIN_API_URL'] + '/payment_systems/pay_pal/account',
-            auth_token='system'
-        )
-        if error:
-            raise PaymentInterfaceError(error)
-
-        if not resp_body['active']:
-            raise PaymentInterfaceError('PayPal payment interface does not active')
-
-        return resp_body['paysys_login'], resp_body['paysys_password']
-
     async def _get_auth_token(self):
         """Get PayPal token."""
-
-        # TODO: add token hash
-        login, password = await self._get_pasys_account()
 
         resp_body, error = await utils.http_request(
             url='https://api.sandbox.paypal.com/v1/oauth2/token?grant_type=client_credentials',
             method='POST',
             headers={'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded'},
-            auth={'login': login, 'password': password},
+            auth={'login': self.LOGIN, 'password': self.PASSWORD},
             body='grant_type=client_credentials'
         )
         if error:
