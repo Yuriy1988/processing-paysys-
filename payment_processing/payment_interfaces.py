@@ -188,7 +188,7 @@ class VisaMaster(PaymentInterface):
         payment_info = decode_crypted_payment(self.transaction["source"]["payment_requisites"]["crypted_payment"])
         pay_acc_hash = hashlib.sha256(payment_info.get("card_number").encode()).hexdigest()
 
-        if self.db.blacklist.find_one({"pay_acc": pay_acc_hash}):
+        if await self.db.blacklist.find_one({"pay_acc": pay_acc_hash}):
             return 'REJECTED', {'rejected_detail': 'Found in blacklist.'}
 
         del payment_info, pay_acc_hash  # clean up sensitive data
