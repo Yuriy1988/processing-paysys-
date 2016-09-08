@@ -186,7 +186,7 @@ class VisaMaster(PaymentInterface):
 
         # --- ANTIFRAUD pre-processing ---
         payment_info = decode_crypted_payment(self.transaction["source"]["payment_requisites"]["crypted_payment"])
-        pay_acc_hash = hashlib.sha256(payment_info("card_number").encode()).hexdigest()
+        pay_acc_hash = hashlib.sha256(payment_info.get("card_number").encode()).hexdigest()
 
         if self.db.blacklist.find_one({"pay_acc": pay_acc_hash}):
             return 'REJECTED', {'rejected_detail': 'Found in blacklist.'}
